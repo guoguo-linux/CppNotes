@@ -166,61 +166,61 @@
     
 
 
-    ```c++
-    #include <iostream>
-    #include <functional>
-    #include <string>
-    int main()
-    {
-        std::cout << "Usage Of Function!" << std::endl;
-    class TestA {
-    public:
-        //通过暴露该接口在外部设置函数对象的具体功能
-        void setDestoryHandle(std::function<bool(const std::string&)> setHandle) {
-            mDestoryHandler = setHandle;
-        }
-        bool doDestoryByName(std::string name) {
-            return mDestoryHandler(name);
-        }
-    
-    private:
-        //定义一个函数对象成员变量
-        std::function<bool(const std::string &)> mDestoryHandler;
-    
-    };
-    
-    class TestB {
-    public:
-        bool destory(const std::string & name) {
-            std::cout << "Test:: Call TestB destroy | name:" << name <<std::endl;
-            return true;
-        }
-    };
-    
-    TestB objB;
-    TestA objA;
-    
-    //通过调用B的成员函数设置A的函数对象功能，实现了mDestoryHandler的解耦
-    objA.setDestoryHandle([&](const std::string &name)->bool{
-        return objB.destory(name);
-    });
-    objA.doDestoryByName("test0");
-    
-    //也可以直接在lambda内直接实现其功能
-    objA.setDestoryHandle([&](const std::string &name)->bool{
-        std::cout << "Test:: Register By User | name:" << name <<std::endl;
-        return true;
-    });
-    objA.doDestoryByName("test1");
-    
-    return 0;
+```c++
+#include <iostream>
+#include <functional>
+#include <string>
+int main()
+{
+    std::cout << "Usage Of Function!" << std::endl;
+class TestA {
+public:
+    //通过暴露该接口在外部设置函数对象的具体功能
+    void setDestoryHandle(std::function<bool(const std::string&)> setHandle) {
+        mDestoryHandler = setHandle;
     }
-    
-    /*测试结果*/
-    Usage Of Function!
-    Test:: Call TestB destroy  | name:test0
-    Test:: Register Cb By User | name:test1
-    ```
+    bool doDestoryByName(std::string name) {
+        return mDestoryHandler(name);
+    }
+
+private:
+    //定义一个函数对象成员变量
+    std::function<bool(const std::string &)> mDestoryHandler;
+
+};
+
+class TestB {
+public:
+    bool destory(const std::string & name) {
+        std::cout << "Test:: Call TestB destroy | name:" << name <<std::endl;
+        return true;
+    }
+};
+
+TestB objB;
+TestA objA;
+
+//通过调用B的成员函数设置A的函数对象功能，实现了mDestoryHandler的解耦
+objA.setDestoryHandle([&](const std::string &name)->bool{
+    return objB.destory(name);
+});
+objA.doDestoryByName("test0");
+
+//也可以直接在lambda内直接实现其功能
+objA.setDestoryHandle([&](const std::string &name)->bool{
+    std::cout << "Test:: Register By User | name:" << name <<std::endl;
+    return true;
+});
+objA.doDestoryByName("test1");
+
+return 0;
+}
+
+/*测试结果*/
+Usage Of Function!
+Test:: Call TestB destroy  | name:test0
+Test:: Register Cb By User | name:test1
+```
 
 场景2：
     
@@ -275,6 +275,67 @@ int main()
 
 4. file_worker 开机初始化部分代码应该怎么写
 ```
+
+场景3:
+利用function注册实现多层级数据传递
+
+```c++
+/* media.h */
+class Media {
+   public:
+    void sourceData(std::function<void(char* data, int len)> fun) {
+        std::vector<char> msg('a', 10);
+        fun(msg.data(), msg.size());
+    }
+};
+```
+
+```c++
+/* mediaWorker.h */
+#include "media.h"
+class MediaWorker {
+   public:
+    MediaWorker(std::function<void(char* data, int len)> func)
+        : mFunction(func), mThMedia([this]() { this->loop(); }) {}
+
+    void loop() {
+        while (true) {
+            //1. 可以直接将mediaWorker上层的回调注册进来
+            mMedia.sourceData(mFunction);
+
+            //2. 如果要使用回调函数传递的数据，可以再包一个lambda，取出想要的数据
+            mMedia.sourceData([this](char* data, int len){
+                if(len > 100) {
+                    //do something
+                    std::cerr << "data len too long\n";
+                }else{
+                    mFunction(data, len);
+                }
+            });
+        }
+    }
+
+   private:
+    Media mMedia;
+    std::function<void(char* data, int len)> mFunction;
+    std::thread mThMedia;
+};
+```
+
+```c++
+#include "mediaWorker.h"
+class Application {
+   public:
+	//将数据传递到最外层
+    MediaWorker mMediaWorker{[](char * data, int len){
+        //do something 
+    }};
+};
+```
+
+对于Media类，它通过sourceData接口产生数据。如果想将数据通过网络传递出去的话，最直白的办法就是在该接口中手写套接字通过网络发送，这样一来就将数据与网络耦合在了一起，最好将数据接口分离开来。通过function函数对象，将数据层层传递。可以用lambda对象实例化function，可以使用注册进来的function对象来实例化。
+
+
 
 
 
@@ -644,6 +705,18 @@ Widget value = q.pop();
 
 ​	意思是，如果返回值，就会创建一个没人使用的副本，而且在接受该值时Widget value必然发生一次实例化。返回引	用则会产生一个空悬指针。
 
+#### 2. 实现ThreadQueue阻塞队列
+
+该阻塞队列将有以下几点要求:
+
+- 可以支持多生产者多消费者并发访问	
+- 队列为空时，元素出列会被阻塞
+- 元素出列时保证异常安全性
+
+
+
+​	
+
 ###    9、条件变量
 
 ​	在C++11中，可以使用条件变量实现多个线程间的同步操作。
@@ -742,6 +815,89 @@ while (!(xxx条件)) {
 #### 3.使用条件变量
 
 使用条件变量解决生产者消费者问题，问题描述如下:
+生产者生成一定量的数据放到缓冲区，重复此过程。同时消费者也在缓冲区消耗这些数据。
+问题关键: 要保证生产者不会在缓存区满时加入数据，消费者也不会缓冲区空时消耗数据。
+所以必须让生产者在缓冲区满时休眠，等到下次消费者消耗缓冲区数据的时候，生产者才能被唤醒，开始向缓冲区添加数据。也可以让消费者在缓冲区空时进入休眠，等到生产者向缓冲区添加数据后，再唤醒消费者。
+
+```c++
+#include <unistd.h>
+
+#include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <iostream>
+#include <mutex>
+#include <thread>
+
+std::mutex mutex;
+std::condition_variable cv;
+
+// buffer
+std::deque<int> dataDeque;
+const int maxNum = 30;
+int nextIndex = 0;
+
+const int producerThreadNum = 3;
+const int consumerThreadNum = 3;
+
+void producerThread(int threadId) {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        //加锁
+        std::unique_lock<std::mutex> uniqueLock(mutex);
+        //当队列未满时，继续添加数据
+        cv.wait(uniqueLock, []() { return dataDeque.size() <= maxNum; });
+        nextIndex++;
+        dataDeque.push_back(nextIndex);
+        std::cout << "producer thread: " << threadId << "  data: " << nextIndex;
+        std::cout << "  queue size: " << dataDeque.size() << std::endl;
+
+        //向缓冲区放入数据后，唤醒消费者
+        cv.notify_all();
+        //自动释放锁
+    }
+}
+
+void consumerThread(int threadId) {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(550));
+        //加锁
+        std::unique_lock<std::mutex> uniqueLock(mutex);
+        //当队列非空时，取走数据
+        cv.wait(uniqueLock, []() { return !dataDeque.empty(); });
+        nextIndex--;
+        int data = dataDeque.front();
+        dataDeque.pop_front();
+        std::cout << "consumer thread: " << threadId << "  data: " << nextIndex;
+        std::cout << "  queue size: " << dataDeque.size() << std::endl;
+
+        //消费者从缓冲区取走数据后唤醒生产者
+        cv.notify_all();
+        //自动释放锁
+    }
+}
+
+int main() {
+    std::thread arrProducerThread[producerThreadNum];
+    std::thread arrConsumerThread[consumerThreadNum];
+
+    for (int i = 0; i < producerThreadNum; i++) {
+        arrProducerThread[i] = std::thread(producerThread, i);
+    }
+    for (int i = 0; i < consumerThreadNum; i++) {
+        arrConsumerThread[i] = std::thread(consumerThread, i);
+    }
+    for (int i = 0; i < producerThreadNum; i++) {
+        arrProducerThread[i].join();
+    }
+    for (int i = 0; i < consumerThreadNum; i++) {
+        arrConsumerThread[i].join();
+    }
+    return 0;
+}
+//reference:https://blog.csdn.net/c_base_jin/article/details/89741247
+```
+
 
 
 
@@ -772,13 +928,99 @@ while (!(xxx条件)) {
 
 框架如下:
 
-![framework(1)](/home/tianyu/Downloads/framework(1).png)
+![framework(1)](./pic/framework(1).png)
 
 
 
 
 
 ###  end 
+
+### 10、写文件相关的若干问题
+
+现在有一个需求：每秒钟向文件中写入一个整型数，每次递增1，且要覆盖之前的数。
+初步的代码如下:
+
+```c++
+int main() {
+    std::ofstream file;
+    file.open("test.dat", std::ios::binary);
+    if (!file.is_open()) {
+        std::cout << "open file failed!\n";
+        return -1;
+    }
+    int count = 0;
+    while (true) {
+        file.write((char*)&count, sizeof(int));
+        file.flush();
+        count++;
+        sleep(1);
+    }
+    file.close();
+    return 0;
+}
+```
+
+运行后cat一下，文件里似乎没有写入任何东西。
+改进了一下代码:
+版本一:
+
+```c++
+int main() {
+    std::ofstream file;
+    file.open("test.dat",std::ios::binary);
+	if(!file.is_open()) {
+        std::cout << "open file failed!\n";
+		return -1;
+    }
+    int count = 0;
+	while(true) {
+        file.seekp(std::ios::beg);  //write in the begin
+		file << count;
+		file.flush();
+		count++;
+		sleep(1);
+    }
+    file.close();
+    return 0;
+}
+```
+
+版本二:
+
+```c++
+int main() {
+    std::ofstream file;
+    file.open("test.dat",std::ios::binary);
+	if(!file.is_open()) {
+        std::cout << "open file failed!\n";
+		return -1;
+    }
+    int count = 0;
+	while(true) {
+        std::string strNum = std::to_string(count);
+        file.seekp(std::ios::beg);  //write in the begin
+        file.write(strNum.c_str(), strNum.size());
+		file.flush();
+		count++;
+		sleep(1);
+    }
+    file.close();
+    return 0;
+}
+```
+
+在最开始的错误代码运行后的test.dat文件里并非没有东西，使用vscode的Hex Editor打开可以看到
+![charCoder](/home/tianyu/doc/LearnCpp/C++Notes/pic/charCoder.jpg)
+
+文件中写入的依次的count的二进制值，在文件打开显示的时候，会按照二进制值对应的ASCII码的字符进行显示。比如count = 48 时，二进制值为00110000，以十六进制打开就是对应的30, 十进制对应的是48, 按照ASCII表，对应的字符是0，后面的依次类推。ASCII表如下:
+![ASCII](/home/tianyu/doc/LearnCpp/C++Notes/pic/ASCII.png)
+
+在版本一与版本二中，">>"和“to_string”都对count进行了格式化，就如何printf一样格式化输出，格式化后写入文件的就是原内容的ASCII值，这样打开文件，就可以直接显示原来的内容。比如count=0，格式化后实现写入文件的是48(00110000)。
+如何在每次写入时覆盖掉之前的内容，可以使用std::fstream::feekp(), 重新定位文件指针。
+std::ios::beg, std::ios::end;
+
+### 11、实例化对象时使用()、{}的区别
 
 
 
