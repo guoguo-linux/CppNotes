@@ -577,6 +577,9 @@ rValue
 
 > C++11中，通常情况下右值引用形式的参数只能接收右值，不能接收左值。但对于函数模板中使用右值引用语法定义的参数来说，它不再遵守这一规定，既可以接收右值，也可以接收左值（此时的右值引用又被称为“万能引用”）。
 
+推荐阅读:
+**C++ std::move and std::forward**  http://bajamircea.github.io/coding/cpp/2016/04/07/move-forward.html
+
 ### 7、重载operator()
 
 *参考:https://zhuanlan.zhihu.com/p/75353199*
@@ -713,7 +716,165 @@ Widget value = q.pop();
 - 队列为空时，元素出列会被阻塞
 - 元素出列时保证异常安全性
 
+```c++
+#ifndef BLOCKQUEUE_H
+#define BLOCKQUEUE_H
 
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <utility>
+
+template <typename T>
+class BlockQueue {
+   public:
+    T pop() {
+        std::unique_lock<std::mutex> lock(mMutex);
+        mCondition.wait(lock, [this]() { return !mQueue.empty(); });
+        auto value = std::move(mQueue.front());
+        mQueue.pop();
+        return value;
+    }
+
+    void pop(T& item) {
+        std::unique_lock<std::mutex> lock(mMutex);
+        mCondition.wait(lock, [this]() { return !mQueue.empty(); });
+        item = std::move(mQueue.front());
+        mQueue.pop();
+    }
+
+    bool tryPop(T& item) {
+        std::unique_lock<std::mutex> lock(mMutex);
+        if (mQueue.empty()) {
+            return false;
+        }
+        item = std::move(mQueue.front());
+        mQueue.pop();
+        return true;
+    }
+	//empty,size should not modify the queue, so const
+    bool empty() const noexcept {
+        std::unique_lock<std::mutex> lock(mMutex);
+        return mQueue.empty();
+    }
+
+    size_t size() const noexcept {
+        std::unique_lock<std::mutex> lock(mMutex);
+        return mQueue.size();
+    }
+
+    void push(const T& item) {
+        std::unique_lock<std::mutex> lock(mMutex);
+        mQueue.push(item);
+        lock.unlock();  // unlock before notificiation to minimize mutex
+                        // contention
+        mCondition.notify_one();  // notify one waiting thread
+    }
+
+    void push(T&& item) {
+        std::unique_lock<std::mutex> lock(mMutex);
+        mQueue.push(std::move(item));
+        lock.unlock();
+        mCondition.notify_one();
+    }
+
+    BlockQueue() = default;
+    BlockQueue(const BlockQueue&) = delete;             //disable copying
+    BlockQueue& operator=(const BlockQueue&) = delete;  //disable assignment
+   private:
+    std::queue<T> mQueue;
+    std::mutex mMutex;
+    std::condition_variable mCondition;
+};
+
+#endif
+```
+
+1. pop()从队列取出元素时，先给互斥量上锁，然后条件变量wait检测是否满足谓词条件``！mQueue.empty()`` ,满足的话即队列不为空，则取出数据，否则暂时释放锁，阻塞线程，直到条件满足才会被唤醒。
+
+2. push()向队列填入数据，push完之后会主动唤醒阻塞的pop()操作。
+
+3. empty，size成员函数都不会修改queue，所以将其声明为const常成员函数，表明不会修改成员变量，使其函数意义更清晰，增加可读性。
+
+4. 在``push()``的唤醒操作前会主动释放锁，是为了最小化互斥量的争用。在``pop()``中锁的释放由``wait()``和``unique_lock``的生命周期决定。
+
+5. 对于上面的同步队列类还有很多扩展的地方，比如pop()可以增加超时机制，可以队列限制队列的大小，超过大小时阻塞``push()``操作。
+
+6. ``push()``方法重载了左值引用与右值两个版本，以适应传入的左值与右值，不使用值传递是为了避免无效的拷贝。
+   当然，还可以使用函数模板与完美转发来代替两次重载。
+
+   ```c++
+       template <typename Message>
+       void push(Message&& mesg) {
+           std::unique_lock<std::mutex> lock(mMutex);
+           mQueue.push(std::forward<Message>(mesg));
+           lock.unlock();
+           mCondition.notify_one();
+       }
+   ```
+
+   
+
+多生产者消费者场景
+
+   ```c++
+#include <chrono>
+#include <iostream>
+#include <mutex>
+#include <string>
+#include <thread>
+
+#include "blockQueue.h"
+
+BlockQueue<std::string> queue;
+std::mutex printMutex;
+
+void producer(int productNum, int waitMilliseconds) {
+    for (int i = 0; i < productNum; ++i) {
+        std::string message{"Message-"};
+        message.append(std::to_string(i));
+        queue.push(message);
+        std::cout << "push data" << message << std::endl;
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(waitMilliseconds));
+    }
+    std::lock_guard<std::mutex> lock(printMutex);
+    std::cout << "producer push message ok!\n";
+}
+
+void consumer(int consumerID) {
+    while (true) {
+        std::string message;
+        queue.pop(message);
+        {
+            std::lock_guard<std::mutex> lock(printMutex);
+            std::cout << "consumer-" << consumerID << " receive:" << message
+                      << std::endl;
+        }
+    }
+}
+
+int main() {
+    std::thread thProducer1{producer, 10, 1};
+    std::thread thProducer2{producer, 10, 1};
+    std::thread thConsumer1{consumer, 1};
+    std::thread thConsumer2{consumer, 2};
+
+    thProducer1.join();
+    thProducer2.join();
+    thConsumer1.join();
+    thConsumer2.join();
+
+    return 0;
+}
+   ```
+
+
+
+> 参考:
+>
+> 1. http://senlinzhan.github.io/2015/08/24/C-%E5%AE%9E%E7%8E%B0%E9%98%BB%E5%A1%9E%E9%98%9F%E5%88%97/
+> 2. https://juanchopanzacpp.wordpress.com/2013/02/26/concurrent-queue-c11/
 
 ​	
 
@@ -1037,3 +1198,11 @@ std::ios::beg, std::ios::end;
 - 避免非常量的全局变量
 
   > 如果想使用全局数据(命名空间)
+
+
+
+## 三、推荐
+
+1. Learn C++  https://www.learncpp.com/
+2.  http://bajamircea.github.io
+3. https://stackoverflow.com/tags
