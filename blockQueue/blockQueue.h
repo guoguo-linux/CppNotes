@@ -44,17 +44,25 @@ class BlockQueue {
         return mQueue.size();
     }
 
-    void push(const T& item) {
-        std::unique_lock<std::mutex> lock(mMutex);
-        mQueue.push(item);
-        lock.unlock();  // unlock before notificiation to minimize mutex
-                        // contention
-        mCondition.notify_one();  // notify one waiting thread
-    }
+    // void push(const T& item) {
+    //     std::unique_lock<std::mutex> lock(mMutex);
+    //     mQueue.push(item);
+    //     lock.unlock();  // unlock before notificiation to minimize mutex
+    //                     // contention
+    //     mCondition.notify_one();  // notify one waiting thread
+    // }
 
-    void push(T&& item) {
+    // void push(T&& item) {
+    //     std::unique_lock<std::mutex> lock(mMutex);
+    //     mQueue.push(std::move(item));
+    //     lock.unlock();
+    //     mCondition.notify_one();
+    // }
+
+    template <typename Message>
+    void push(Message&& mesg) {
         std::unique_lock<std::mutex> lock(mMutex);
-        mQueue.push(std::move(item));
+        mQueue.push(std::forward<Message>(mesg));
         lock.unlock();
         mCondition.notify_one();
     }
