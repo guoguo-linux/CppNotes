@@ -1201,7 +1201,339 @@ std::ios::beg, std::ios::end;
 
 
 
-## 三、推荐
+## 三、LearnCpp
+
+### 8.14 — 函数模板实例化
+
+上一节介绍了函数模板，这一节将重点介绍如何使用模板
+
+#### 使用函数模板
+
+函数模板实际上并不是函数——它们的代码不是直接编译或执行的。相反，函数模板只有一项工作：生成函数；
+要使用我们的 max<T> 函数模板，我们可以使用以下语法进行函数调用：
+
+```c++
+max<actual_type>(arg1,arg2);  //actual_type is some type, like int or double
+```
+
+这看起来很像一个普通的函数调用——主要的区别是在尖括号中添加了类型，它指定了将用来代替模板类型 T 的实际类型。
+看一下下面的例子:
+
+```c++
+#include <iostream>
+ 
+template <typename T>
+T max(T x, T y){
+    return (x > y) ? x : y;
+}
+ 
+int main(){
+    std::cout << max<int>(1, 2) << '\n'; // 实例化->调用max<int>(int, int)
+    return 0;
+}
+```
+
+当编译器执行到``max<int>(1,2)``这一行时，会发现该函数的定义并不存在，最后编译器会找到匹配的函数模板并创建出一个函数。这个创建的过程就叫做函数模板实例化。当实例化在函数调用的时候发生时就叫做隐式实例化。实例化的函数叫做实例或模板函数。
+实例化的过程很简单:编译器实质上复制了模板，然后将我们指定的类型(int)替代了模板类型。
+在函数首次实例化后，再次调用该函数就无需实例化(多次调用模板函数，仅在第一次实例化)。如下例:
+
+```c++
+#include <iostream>
+ 
+template <typename T>
+T max(T x, T y){
+    return (x > y) ? x : y;
+}
+ 
+int main(){
+    std::cout << max<int>(1, 2) << '\n'; // 实例化并调用模板函数 max<int>(int, int)
+    std::cout << max<int>(4, 3) << '\n'; // 调用已经实例化的模板函数max<int>(int, int)
+    std::cout << max<double>(1, 2) << '\n'; // 实例化并调用 max<double>(double, double)
+    return 0;
+}
+```
+
+实例化后，等效于以下:
+
+```c++
+#include <iostream>
+ 
+template <typename T> //函数模板的声明(无需再定义)
+T max(T x, T y);
+
+//实例化后生成一下两个模板函数(重载两个函数)
+template<>  // the generated function max<int>(int, int)
+int max<int>(int x, int y) {
+    return (x > y) ? x : y;
+}
+ 
+template<> // the generated function max<double>(double, double)
+double max<double>(double x, double y) {
+    return (x > y) ? x : y;
+}
+ 
+int main(){
+    std::cout << max<int>(1, 2) << '\n'; // 实例化并调用模板函数 max<int>(int, int)
+    std::cout << max<int>(4, 3) << '\n'; // 调用已经实例化的模板函数max<int>(int, int)
+    std::cout << max<double>(1, 2) << '\n'; // 实例化并调用 max<double>(double, double)
+    return 0;
+}
+```
+
+注意：在实例化max<double>的时候，由于指定了参数类型为double，即使传入的实参为int，也会被隐式转换成double。
+实例化后就相当于编译器为我们手动重载了一系列模板函数。
+
+#### 模板参数推导
+
+在大多数情况下，用于实例化的实际类型与函数参数的类型是相匹配的。
+
+```c++
+std::cout << max<int>(1,2)<<'\n';  //指定调用max<int>
+```
+
+在上面例子中，我们指定要用int替代T，但同时我们也使用int参数调用该函数。
+通常情况下，当实参类型与我们想要匹配的模板参数类型相匹配的情况下，我们不需要指定实际类型。相反，可以使用模板类型推导让编译器根据实参自动推导出匹配的模板参数类型来实例化。
+上面的代码就可以如下:
+
+```c++
+std::cout << max<>(1, 2) << '\n';
+std::cout << max(1, 2) << '\n';
+```
+
+这里有两种写法，一个带空的尖括号，一个不带。两者有什么区别？
+带空尖括号的调用时，编译器在确定调用哪个重载函数时，只会考虑max<int>模板函数重载。
+对于不带尖括号，编译器将同时考虑max<int>函数模板重载和max非模板函数重载。
+示例代码:
+
+```c++
+#include <iostream>
+ 
+template <typename T>
+T max(T x, T y){
+    return (x > y) ? x : y;
+}
+ 
+int max(int x, int y){
+    return (x > y) ? x : y;
+}
+ 
+int main(){
+    std::cout << max<int>(1, 2) << '\n'; // 选择模板函数 max<int>
+    std::cout << max<>(1, 2) << '\n'; // 推断出max<int>(int, int) (非模板函数就不会考虑)
+    std::cout << max(1, 2) << '\n'; // 调用非模板函数 max(int, int)
+    return 0;
+}
+```
+
+对于``max(1,2)``这种与普通函数调用相同的语法，是调用函数模板时的首选语法，以后默认使用这种写法。
+
+#### 具有非模板参数的函数模板
+
+直接看例子:
+
+```c++
+template <typename T>
+int someFcn (T x, double y){
+    return 5;
+}
+
+int main(){
+    someFcn(1, 3.4); // matches someFcn(int, double)
+    someFcn(1, 3.4f); // matches someFcn(int, double) --float型转为double
+    someFcn(1.2, 3.4); // matches someFcn(double, double)
+    someFcn(1.2f, 3.4); // matches someFcn(float, double)
+    someFcn(1.2f, 3.4f); // matches someFcn(float, double) --float型转为double
+    return 0;
+}
+```
+
+
+
+#### 实例化函数不一定被编译
+
+看一下以下代码:
+
+```c++
+#include <iostream>
+#include <string>
+ 
+template <typename T>
+T addOne(T x) {
+    return x + 1;
+}
+ 
+int main(){
+    std::cout << addOne(1) << '\n';
+    
+    std::string hello { "Hello, world!" };
+    std::cout << addOne(hello) << '\n';
+    return 0;
+}
+```
+
+经编译器处理后等效于:
+
+```c++
+#include <iostream>
+
+template <typename T>
+T addOne(T x);
+
+template<>
+int addOne<int>(int x) {
+    return x+1;
+}
+
+template<>
+std::string addOne<std::string>(std::string x){
+    return x + 1;
+}
+
+int main(){
+    std::cout << addOne(1) << '\n';   // calls addOne<int>(int)
+    std::cout << addOne(2.3) << '\n'; // calls addOne<double>(double)
+    return 0;
+}
+```
+
+报错，operator+ 无法匹配string与int相加，未实现该操作符重载。
+
+#### 小结:
+
+有模板类型可以被任何类型替换，故模板类型也叫泛型类型。使用模板编程就叫泛型编程。泛型编程可以让我们更专注于算法的逻辑信息和数据结构设计，而不用太关心类型信息。
+对于模板的一些缺点:
+编译器会为每一个具有唯一参数类型的函数调用创建一个函数，虽然写模板的时候代码很紧凑，但是编译时会扩展成大量代码，进而导致代码膨胀和编译时间变慢。
+最令人抓狂的是它往往会产生一大堆可读性差的错误信息。
+
+使用建议:
+先创建普通函数，如果发现需要为不同函数重载时，再将其转换为函数模板。
+
+### 8.15 —  具有多模板类型的函数模板
+
+回顾一下之前的比较两数较大值的代码，加入一行
+
+```c++
+#include <iostream>
+ 
+template <typename T>
+T max(T x, T y){
+    return (x > y) ? x : y;
+}
+ 
+int main(){
+    std::cout << max(2, 3.5) << '\n';  // compile error
+    return 0;
+}
+```
+
+```shell
+compare-1.cpp: In function ‘int main()’:
+compare-1.cpp:9:28: error: no matching function for call to ‘max(int, double)’
+    9 |     std::cout << max(2, 3.5) << '\n';
+      |                            ^
+compare-1.cpp:4:3: note: candidate: ‘template<class T> T max(T, T)’
+    4 | T max(T x, T y) {
+      |   ^~~
+compare-1.cpp:4:3: note:   template argument deduction/substitution failed:
+compare-1.cpp:9:28: note:   deduced conflicting types for parameter ‘T’ (‘int’ and ‘double’)
+    9 |     std::cout << max(2, 3.5) << '\n';
+      |                            ^
+
+```
+
+提示找不到匹配的 函数调用，首先不存在非模板匹配，对于函数模板，编译器推导出了max(int, double)的类型参数，但是T只能表示一种类型，所以提示找不到模板匹配。
+看看如何解决，
+
+1. 使用 static_cast 将参数转换为匹配类型
+
+   ```c++
+   #include <iostream>
+    
+   template <typename T>
+   T max(T x, T y){
+       return (x > y) ? x : y;
+   }
+    
+   int main(){
+       std::cout << max(static_cast<double>(2), 3.5) << '\n'; 
+       // convert our int to a double so we can call max(double, double)
+       return 0;
+   }
+   ```
+
+2. 创建具有具体类型的函数
+
+   ```c++
+   #include <iostream>
+    
+   double max(double x, double y){
+       return (x > y) ? x : y;
+   }
+    
+   int main(){
+       std::cout << max(2, 3.5) << '\n'; 
+       // the int argument will be converted to a double
+       return 0;
+   }
+   ```
+
+3. 指定模板参数类型，避免类型推导
+
+   ```c++
+   #include <iostream>
+    
+   template <typename T>
+   T max(T x, T y){
+       return (x > y) ? x : y;
+   }
+    
+   int main()
+   {
+       std::cout << max<double>(2, 3.5) << '\n'; 
+       // we've provided actual type double, so the compiler won't use template argument deduction
+       return 0;
+   }
+   ```
+
+4. 多模板类型参数
+
+   ```c++
+   #include <iostream>
+    
+   template <typename T, typename U> // use two template type parameters named T and U
+   T max(T x, U y){
+       return (x > y) ? x : y;  // 此处会发生类型窄缩转换
+   }
+    
+   int main()
+   {
+       std::cout << max(2, 3.5) << '\n';
+       return 0;
+   }
+   ```
+
+   编译器实例化出 ``max<int, double>(int, double)``,编译通过。
+   但是还有一个问题，经过条件运算符将返回一个double，但是模板定义返回T(T会被解析为int)，所以double返回时会窄缩为int，可能会丢失数据。无论返回值类型为T还是U都不能解决问题。
+   是否可以让编译器从return语句中推断出返回类型 --- 使用 auto
+
+   ```c++
+   template <typename T, typename U> // use two template type parameters named T and U
+   auto max(T x, U y){
+       return (x > y) ? x : y;  // 此处会发生类型窄缩转换
+   }
+    
+   int main()
+   {
+       std::cout << max(2, 3.5) << '\n';
+       return 0;
+   }
+   ```
+
+### 19.1 — 模板类
+
+
+
+## 四、推荐
 
 1. Learn C++  https://www.learncpp.com/
 2.  http://bajamircea.github.io
