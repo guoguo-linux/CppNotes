@@ -1203,6 +1203,47 @@ std::ios::beg, std::ios::end;
 
 ## 三、LearnCpp
 
+### 16.6 容器类
+
+生活中，容器随处可见，主要的作用有两个:组织和储存。
+同理，容器类是用于保存和组织另外一种类型的类。c++中有很多容器类，vector，map，queue等。
+比较常用的就是vector数组类，相比于内置类型的数组，数组容器类在增删元素时能动态调整大小，在传递给函数时记住它们的大小，并进行边界检查。  这使得数组容器类比普通数组更方便，安全。
+我们看一下一个定义良好的容器类具有哪些功能:
+
+- 可以通过构造函数创建一个空容器
+- 能在容器中插入或移除对象
+- 能知道当前容器中的对象数量
+- 能清空容器中的所有对象
+- 能对容器中的对象进行访问
+- 能对元素进行排序(可选)
+
+有时，有的容器会忽略部分功能，例如数组类会忽略掉操作比较慢的插入删除操作。
+
+#### 容器的类型
+
+容器类通常有两种不同的种类。  
+**值容器**是存储它们所持有的对象副本的组合（因此负责创建和销毁这些副本）。  ？？？
+**引用容器**是存储指向其他对象的指针或引用的聚合（因此不负责创建或销毁这些对象） ？？？
+
+通常，容器只保存一种类型的数据，整型数组就只能存放整型数据。如果同时想在一个容器保存多种类型数据，可以借助模板来实现。
+
+#### 实现一个数组容器类
+
+以上面的功能作参考，从头实现一个整型数组类。这个容器类会是一个值容器，保存元素的副本。类似于``std::vector<int>``。
+首先创建头文件
+
+```c++
+#ifndef INTARRAY_H
+#define INTARRAY_H
+ 
+class IntArray{
+};
+ 
+#endif
+```
+
+
+
 ### 8.14 — 函数模板实例化
 
 上一节介绍了函数模板，这一节将重点介绍如何使用模板
@@ -1529,7 +1570,81 @@ compare-1.cpp:9:28: note:   deduced conflicting types for parameter ‘T’ (‘
    }
    ```
 
-### 19.1 — 模板类
+### 19.1 — 类模板
+
+回顾16.1中的整型数组容器类，使用模板使数组能存放任意类型
+
+```c++
+#ifndef ARRAY_H
+#define ARRAY_H
+ 
+#include <cassert>
+ 
+template <class T>
+class Array{
+private:
+    int m_length{};
+    T *m_data{};
+ 
+public:
+    Array(int length){
+        assert(length > 0);
+        m_data = new T[length]{};
+        m_length = length;
+    }
+ 
+    Array(const Array&) = delete;
+    Array& operator=(const Array&) = delete;
+ 
+    ~Array(){
+        delete[] m_data;
+    }
+ 
+    void erase(){
+        delete[] m_data;
+        // We need to make sure we set m_data to 0 here, otherwise it will
+        // be left pointing at deallocated memory!
+        m_data = nullptr;
+        m_length = 0;
+    }
+ 
+    T& operator[](int index) {
+        assert(index >= 0 && index < m_length);
+        return m_data[index];
+    }
+ 
+    // templated getLength() function defined below
+    int getLength() const; 
+};
+ 
+// member functions defined outside the class need their own template declaration
+template <class T>
+int Array<T>::getLength() const // note class name is Array<T>, not Array
+{
+  return m_length;
+}
+ 
+#endif
+```
+
+测试:
+
+```c++
+#include <iostream>
+#include "array.h"
+
+int main() {
+    Array<int> intArray(10);
+    Array<double> doubleArray(10);
+    for(int count = 0; count < intArray.getLength(); ++count) {
+        intArray[count] = count;
+        doubleArray[count]=count+0.5;
+    }
+    for (int count=intArray.getLength() - 1 ; count >= 0; --count)
+		std::cout << intArray[count] << '\t' << doubleArray[count] << '\n';
+    return 0;
+}
+```
 
 
 
