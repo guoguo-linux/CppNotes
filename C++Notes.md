@@ -1692,7 +1692,64 @@ main.cpp:(.text+0x4d): undefined reference to `Array<int>::getLength() const'
 1. 最简单也是比较通用的就是将所有模板类的代码都放在头文件中，当然这样做也有个缺点，当在多处包含该头文件时，最后会得到该模板类的多个本地副本，然后增加了编译和链接的时间。
 2. 三文件方法，将模板类定义在头文件中，类模板成员函数定义在源文件，然后添加第三个文件，在其中包含所需要的所有实例化类。详见:``https://www.learncpp.com/cpp-tutorial/template-classes/``
 
-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
+### 19.2 — 模板非类型参数
+
+在前面的内容中，我们学习了如何使用模板类型参数来创建类型无关的函数和类。  模板类型参数是一种占位符类型，用于替代作为参数传入的类型。但是，模板类型参数并不是唯一可用的模板参数类型。  模板类和函数可以使用另一种称为非类型参数的模板参数。
+
+#### 非类型模板参数
+
+非类型模板参数可以是下列类型:
+
+- 整型
+- 枚举类型
+- 指向类对象的指针或者引用
+- 函数指针或函数引用
+- 类成员函数指针或引用
+- 空指针 std::nullprr
+- 浮点类型(C++20)
+
+看一个例子，我们创建一个Static数组类，类型参数控制静态数组的数据类型，整型非类型参数控制静态数组的大小。
+
+```c++
+#include <iostream>
+
+template <typename T, int size>
+class StaticArray{
+    private:
+    T mArray[size] {};
+    public:
+    T* getArray();
+	//重载[]运算符
+    T& operator[](int index){
+        return mArray[index];
+    }
+};
+//类模板成员函数类外定义
+template<typename T, int size>
+T* StaticArray<T, size>::getArray() {
+    return mArray;
+}
+
+int main() {
+    StaticArray<int, 5> intArray;
+    for(int count{0}; count < 5; ++count) {
+        intArray[count]  = count;
+        std::cout << intArray[count] << std::endl;
+    }
+
+    StaticArray<double, 5> doubleArray;
+    for(int count{0}; count < 5; ++count) {
+        doubleArray[count] = 0.1*count + 2.2;
+        std::cout << doubleArray[count] << std::endl;
+    }
+}
+```
+
+由于实例化时由常量size初始化数组，所以不必动态分配，由constexpr (非类型模板参数)静态分配
+
+### 19.3 函数模板特化
+
+
 
 可以看到上面模板类的定义
 
