@@ -1,0 +1,16 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/tianyu/doc/LearnCpp/C++Notes/c++Primer/construction/constructor/constructor.cpp
+constructor.h
+/home/tianyu/doc/LearnCpp/C++Notes/c++Primer/construction/constructor/constructor.h
+iostream
+-
+
+/home/tianyu/doc/LearnCpp/C++Notes/c++Primer/construction/constructor/constructor.h
+

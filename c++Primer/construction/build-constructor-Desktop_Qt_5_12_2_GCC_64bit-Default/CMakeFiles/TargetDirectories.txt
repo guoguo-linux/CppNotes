@@ -1,0 +1,3 @@
+/home/tianyu/doc/LearnCpp/C++Notes/c++Primer/construction/build-constructor-Desktop_Qt_5_12_2_GCC_64bit-Default/CMakeFiles/rebuild_cache.dir
+/home/tianyu/doc/LearnCpp/C++Notes/c++Primer/construction/build-constructor-Desktop_Qt_5_12_2_GCC_64bit-Default/CMakeFiles/edit_cache.dir
+/home/tianyu/doc/LearnCpp/C++Notes/c++Primer/construction/build-constructor-Desktop_Qt_5_12_2_GCC_64bit-Default/CMakeFiles/constructor.dir

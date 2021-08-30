@@ -1574,6 +1574,8 @@ compare-1.cpp:9:28: note:   deduced conflicting types for parameter ‘T’ (‘
 
 回顾16.1中的整型数组容器类，使用模板使数组能存放任意类型
 
+#### 示例
+
 ```c++
 #ifndef ARRAY_H
 #define ARRAY_H
@@ -1646,7 +1648,53 @@ int main() {
 }
 ```
 
+#### 模板类分离
 
+对于非模板类，一般将类定义放在头文件中，将成员函数定义放在类似命名的代码源文件中。编译的的时候，类的源文件就会被编译为一个单独的文件。对于类模板却不可以这么写，改写一下上面的例子:
+``Array.h``
+
+```c++
+#ifndef ARRAY_H
+#define ARRAY_H
+ 
+template <class T>
+class Array{
+public:
+    ...
+    int getLength() const; 
+};
+ 
+#endif
+```
+
+``Array.cpp``
+
+```c++
+#include "Array.h"
+ 
+template <class T>
+int Array<T>::getLength() const { // note class name is Array<T>, not Array
+  return m_length;
+}
+```
+
+再次测试编译后，出现编译错误：
+
+```shell
+main.cpp:(.text+0x4d): undefined reference to `Array<int>::getLength() const'
+/usr/bin/ld: main.cpp:(.text+0xab): undefined reference to `Array<int>::getLength() const'
+```
+
+提示``Array<int>::getLength() const``未定义，为什么会未定义?我们来分析一下:
+首先C++是单独编译文件的，当main.cpp中包含头文件Array.h时，模板类的定义就被复制到了main.cpp中。当编译器发现我们需要Array<int>和Array<double>两个模板实例，就会实例化出两个模板类，并将其编译为main.cpp的一部分。在单独编译Array.cpp时，同样包含Array.h, 但是在Array.cpp中并不会实例化出具体类型的类，它也不知道我们需要Array<int>和Array<double>,因此该模板函数永远不会被实例化。所以，在链接的时候，提示找不到``Array<int>::getLength() const``的定义。
+如何解决:
+
+1. 最简单也是比较通用的就是将所有模板类的代码都放在头文件中，当然这样做也有个缺点，当在多处包含该头文件时，最后会得到该模板类的多个本地副本，然后增加了编译和链接的时间。
+2. 三文件方法，将模板类定义在头文件中，类模板成员函数定义在源文件，然后添加第三个文件，在其中包含所需要的所有实例化类。详见:``https://www.learncpp.com/cpp-tutorial/template-classes/``
+
+
+
+可以看到上面模板类的定义
 
 ## 四、推荐
 
