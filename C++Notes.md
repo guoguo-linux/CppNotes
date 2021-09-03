@@ -1203,6 +1203,70 @@ std::ios::beg, std::ios::end;
 
 ## 三、LearnCpp
 
+### x.x 引用
+
+#### **概念**
+
+**引用并非对象，相反，它只是为一个已经存在的对象所起的别名**
+通常情况，我们说引用指的是左值引用。引用理解为给对象起了一个别名，写成取地址符&加上变量名。
+``int val = 1;   int & refVal = val;``
+在初始化变量的时候，初始值会被拷贝到新建的对象中，然而在定义引用的时候，程序将引用变量和它的初始值绑定到一起，而不是将初始值拷贝给引用。一旦引用初始化完成，引用就将和它的初始值对象一直绑定在一起，并无法绑定到另一个对象，所以引用必须初始化。
+看一段代码:
+
+```c++
+#include <iostream>
+using namespace std;
+int main() {
+	int a = 10;
+	int &b = a;
+
+	cout << "a的地址为：" << &a << endl;
+	cout << "b的地址为：" << &b << endl;
+	return 0;
+}
+```
+
+运行后打印出的地址是一样的，是否意味着引用变量b本身不占内存空间。非也，实际上对b取地址得到的是a的地址，原因是引用在c++中是通过常指针实现的: ``int &b = a;`` 等价于 ``int* const b = &a;``  在对b取地址时编译器会把``&b``编译为``&(*b)``,所以打印出的是a的地址。所以引用跟指针一样，在32位系统中占4字节，64位8字节。
+引用b是一个常指针，指针本身即指向的地址不可以改变，但是该地址的内容可以改变，所以说一旦引用初始化就不可以和绑定的对象分离了。
+由此可以总结一下引用和指针的区别:
+
+- **安全**：引用一旦和对象绑定，就不能更换对象，安全性好；但是指针指向的对象时可以改变的，不能保证安全；
+- **方便**：引用实际上是封装好的指针解引用，可以直接使用；但指针还得手动解引用，不方便；
+- **级数**：引用只有一级，不能多次引用；但是指针的级数没有限制；
+- **初始化**：引用必须被初始化为一个已有对象的引用(合法的内存)，而指针可以初始化为nullptr；
+
+#### **为什么引入引用**
+
+经过上面的分析，我们知道引用是指向对象的常指针，使用引用的好处是，我们在使用引用的时候不会在内存中生成对象的副本。
+
+#### **应用:**
+
+**1 - 传参**
+将引用用于函数参数传递中，解决大块数据或对象在值传递时效率不高的问题。虽然传递指针和传递引用效果一样，但是引用传递更可读，清晰，不易产生错误。
+**2 - 常引用**
+当我们不想传递的数据被改变时，可以通过const加引用，提高引用传递的安全性。
+**3 - 引用作为返回值**
+将引用作为返回值，可以避免在内存中产生返回值的副本。
+使用引用作为返回值，要注意以下几点:
+    (1) 不能返回局部变量的引用
+    (2) 不能返回函数内部new分配的内存的引用
+    (3) [**c++**中有些重载**运算符**为什么要**返回引用** ](https://www.cnblogs.com/codingmengmeng/p/5871254.html)
+    (4) 引用和多态
+
+> 参考:https://www.cnblogs.com/xiaofengkang/archive/2011/05/16/2048262.html
+
+
+
+###  x.1 左值引用与右值引用
+
+
+
+## 12 面向对象编程基础
+
+### 12.1 
+
+
+
 ### 16.6 容器类
 
 生活中，容器随处可见，主要的作用有两个:组织和储存。
@@ -1241,6 +1305,16 @@ class IntArray{
  
 #endif
 ```
+
+## 16 对象关系
+
+### 16.1 对象关系
+
+
+
+## 17 继承
+
+### 17.1 继承简介
 
 
 
@@ -1749,7 +1823,393 @@ int main() {
 
 ### 19.3 函数模板特化
 
+### 19.4 类模板特化
 
+### 19.5 模板部分特化
+
+先看一下先前的staticArray例子:
+
+```c++
+template<typename T, int size>
+class StaticArray{
+  private:
+    T mArray[size] {};
+  public:
+    T* getArray() {return mArray;}
+    T& operator[](int index) {
+        return mArray[index];
+    }
+};
+```
+
+现在我们实现一个函数来打印整个数组。虽然可以将其作为成员函数实现，但为了方便理解部分特化，我们将其最为非成员函数实现。
+使用模板如下:
+
+```c++
+#include <iostream>
+#include <cstring>
+
+template <typename T, int size> // size is the expression parameter
+class StaticArray {
+private:
+	// The expression parameter controls the size of the array
+	T m_array[size]{};
+
+public:
+	T* getArray() { return m_array; }
+    
+	T& operator[](int index) {
+		return m_array[index];
+	}
+};
+//打印整个数组
+template <typename T, int size>
+void print(StaticArray<T, size>& array) {
+	for (int count{ 0 }; count < size; ++count)
+		std::cout << array[count] << ' ';
+}
+
+int main() {
+	// declare an int array
+	StaticArray<int, 4> int4{};
+	int4[0] = 0;
+	int4[1] = 1;
+	int4[2] = 2;
+	int4[3] = 3;
+
+	// Print the array
+	print(int4);
+	return 0;
+}
+```
+
+输出: ``0 1 2 3 ``
+虽然运行正常，但是有一点小设计缺陷，如下:
+
+```c++
+int main() {
+    StaticArray<char, 14> char14{};
+    std::strcpy(char14.getArray(), "Hello world!");
+    print(char14);
+    return 0;
+}
+//out --> H e l l o ,   w o r l d ! 
+```
+
+对于非字符类型的打印，我们希望每个元素间隔一下以便阅读，但是对于字符类型，最好还是将字符挨着一起打印。
+那怎么优化，我们首先会想到(完全)模板特化，且完全模板特化必须明确定义所有模板参数。
+
+```c++
+template<>
+void print(StaticArray<char, 14>& array){
+for (int count{ 0 }; count < 14; ++count)
+		std::cout << array[count];
+}
+```
+
+虽然使用完全模板特化解决了打印间隔的问题，但是我们必须明确定义数组的长度。
+如果实例化的StaticArray 的长度不为14，会怎么样，看到这个例子:
+
+```c++
+int main() {
+    StaticArray<char, 12> char12{};
+    std::strcpy(char12.getArray(), "Hello, mom!");
+    print(char12);
+    return 0;
+}
+//输出:H e l l o   m o m ! 
+```
+
+#### 部分模板特化
+
+可以看到此时匹配到通用的函数模板，没有达到我们想到的效果。我们不可能预知每次实例化时的数组长度，而写出一大堆模板函数，这就失去模板的意义了。所以有了模板部分特化：
+根据实际需求保留部分模板参数
+
+```c++
+template<int size>
+void print(StaticArry<char, size>& array) {
+    for(int count{0}; count < size; ++count)
+        	std::cout << array[count];
+}
+//输出：Hello, mom!
+```
+
+**部分模板特化只能用于类，不能用于模板函数（函数必须是完全特化的）**。  
+我们的 ``void print(StaticArray<char,  size> &array)`` 示例有效，因为 print 函数不是部分特化的（它只是使用部分特化的类参数的重载函数）。
+
+#### 类成员函数的部分模板特化
+
+我们尝试一下对成员函数进行部分特化:
+
+```c++
+template <typename T, int size> // size is the expression parameter
+class StaticArray {
+private:
+    // The expression parameter controls the size of the array
+    T m_array[size]{};
+public:
+    T* getArray() { return m_array; }
+
+    T& operator[](int index) {
+        return m_array[index];
+    }
+
+    void print() {
+        for (int i{ 0 }; i < size; ++i)
+            std::cout << m_array[i] << ' ';
+        std::cout << '\n';
+    }
+};
+
+//try partially specialize print()
+template<int size>
+void StaticArray<double, size>::print() {
+    for(int i{0}; i <size; ++i)
+        std::cout << std::scientific <<m_array[i] << ' ';
+    std::cout << '\n';
+}
+```
+
+```c++
+
+int main() {
+
+    StaticArray<double, 5> doubleArray;
+    for(int count{0}; count < 5; ++count) {
+        doubleArray[count] = 0.1*count + 2.2;
+    }
+    doubleArray.print();
+	return 0;
+}
+```
+
+``error: invalid use of incomplete type ‘class StaticArray<double, size>’``
+
+特化一个函数明显行不通，那么可以尝试特化一整个类
+
+```c++
+#include<iostream>
+
+template <typename T, int size> // size is the expression parameter
+class StaticArray {
+private:
+	// The expression parameter controls the size of the array
+	T m_array[size]{};
+public:
+	T* getArray() { return m_array; }
+
+	T& operator[](int index){
+		return m_array[index];
+	}
+	void print(){
+		for (int i{ 0 }; i < size; ++i)
+			std::cout << m_array[i] << ' ';
+		std::cout << "\n";
+	}
+};
+
+//单独特化类模板
+template <int size> // size is the expression parameter
+class StaticArray<double, size> {
+private:
+	// The expression parameter controls the size of the array
+	double m_array[size]{};
+public:
+	double* getArray() { return m_array; }
+
+	double& operator[](int index){
+		return m_array[index];
+	}
+	void print() {
+		for (int i{ 0 }; i < size; ++i)
+			std::cout << std::scientific << m_array[i] << ' ';
+		std::cout << '\n';
+	}
+};
+```
+
+单独特化类模板可以达到我们想要的目的，但是我们不得不复制除了print()函数意外的一大堆相同的代码。我们可以使用继承进一步优化代码。
+
+```c++
+#include <iostream>
+#include <cstring>
+
+template <typename T, int size> // size is the expression parameter
+class StaticArrayBase {
+protected:
+	// The expression parameter controls the size of the array
+	T m_array[size]{};
+
+public:
+	T* getArray() { return m_array; }
+    
+	T& operator[](int index) {
+		return m_array[index];
+	}
+
+    void print() {
+        for (int i{ 0 }; i < size; ++i)
+            std::cout << m_array[i] << ' ';
+        std::cout << '\n';
+    }
+    virtual ~StaticArrayBase() = default;
+};
+
+template<typename T, int size>
+class StaticArray:public StaticArrayBase<T,size> {
+    public:
+};
+
+template<int size>
+class StaticArray<double, size>:public StaticArrayBase<double, size> {
+    public:
+    void print() {
+        for(int i{0}; i < size; ++i)
+            std::cout << std::scientific << this->m_array[i] << ' ';
+        std::cout << '\n';
+    }
+};
+
+int main() {
+    StaticArray<int, 3> intArray{};
+    for(int i{0}; i < 3; ++i)
+        intArray[i] = i;
+    intArray.print();
+
+    StaticArray<double, 3> doubleArray{};
+    for(int count{0}; count < 3; ++count)
+        doubleArray[count] = 0.1*count + 2.2;
+    doubleArray.print();
+	return 0;
+}
+```
+
+使用继承减少了大量重复的代码；
+
+### 19.6  指针的部分模板特化
+
+回顾一下在19.3节函数模板特化中的示例代码:
+
+```c++
+#include <iostream>
+
+template<typename T>
+class Storage {
+  private:
+    T m_value;
+  public:
+    Storage(T value):m_value{value} {}
+    ~Storage(){}
+    void print() const {
+        std::cout << m_value << '\n';
+    }
+};
+```
+
+当模板类型参数为char*  时，在构造函数中发生了指针拷贝 / 浅拷贝。然后我们通过函数模板完全特化创建了char*类型的模板。
+
+```c++
+template<>
+Storage<char*>::Storage(char* value){
+    int length = strlen(value);
+    m_value = new char[length];
+    strcpy(m_value, value);
+}
+
+template<>
+Storage<char*>::~Storage() {
+    delete[] m_value;
+}
+```
+
+针对``char*``的特化能很好地解决传入字符 指针的情况，但是如果是``int *``，或者是其他类型的指针，该怎么办？
+只要T是任意指针类型，就会遇到构造函数进行指针浅拷贝的问题。
+由于函数模板特化要求完全特化，那为了解决这个问题，我们就必须为每一个想要使用的指针类型定义一个新的特化构造 / 析构函数，这就会导致大量代码重复。
+部分模板特化为我们提供了一个方便的解决方案。  在这种情况下，我们将使用部分类模板特化来定义适用于指针值的 Storage 类的特殊版本。 
+
+```c++
+#include <iostream>
+
+template<typename T>
+class Storage {
+  private:
+    T m_value;
+  public:
+    Storage(T value):m_value{value} {}
+    ~Storage(){}
+    void print() const {
+        std::cout << m_value << '\n';
+    }
+};
+
+template<typename T>
+class Storage<T*>{
+  private:
+    T* m_value;
+  public:
+    //copy a single value, not an array
+    Storage(T* value):m_value(new T {*value}){}
+    ~Storage(){ delete m_value; }
+    void print() const {
+        std::cout << *m_value << '\n';
+    }
+};
+
+int main() {
+	// Declare a non-pointer Storage to show it works
+	Storage<int> myint { 5 };
+	myint.print();
+
+	// Declare a pointer Storage to show it works
+	int x { 7 };
+	Storage<int*> myintptr(&x);
+
+	// Let's show that myintptr is separate from x.
+	// If we change x, myintptr should not change
+	x = 9;
+	myintptr.print();
+    return 0;
+}
+
+```
+
+当使用 int* 模板参数定义 myintptr 时，编译器会看到我们定义了一个部分特化模板类，该类可用于任何指针类型，并使用该模板实例化  Storage 的一个版本。  该类的构造函数对x进行深拷贝。 所以当我们将 x 更改为 9 时，  myintptr.m_value 不受影响，因为它指向它自己的值副本。
+注意，上面的部分特化的Storage类只会分配一个值，对于C字符串，只会复制第一个字符。如果希望复制整个字符串，可以完全特化``char*``类型的构造函数和析构函数。完全特化将会优先于部分特化的版本。
+可以在上面再添加完全特化的char*类型的构造析构函数
+
+```c++
+...
+template<>   //完全特化char*类型的构造函数
+Storage<char *>::Storage(char * value) {
+    int length = strlen(value);
+    m_value = new char[length];
+    strcpy(m_value, value);
+}
+template<>  //完全特化char*类型的析构函数
+Storage<char*>::~Storage() {
+    delete[] m_value;
+}
+template <> //完全特化char*类型的打印函数
+void Storage<char*>::print() const {
+    std::cout << m_value;
+}
+```
+
+测试:
+
+```c++
+int main() {
+    std::string name{"tian"};
+
+    Storage<char*> str((char*)name.data());
+    str.print();  //--> tian
+    name.clear();
+    str.print();  //--> tian
+    return 0;
+}
+```
+
+### 19.x 综合测试
 
 可以看到上面模板类的定义
 
@@ -1758,3 +2218,45 @@ int main() {
 1. Learn C++  https://www.learncpp.com/
 2.  http://bajamircea.github.io
 3. https://stackoverflow.com/tags
+
+## 五、zoo
+
+#### 0、引用
+
+
+
+#### 1、左值引用与右值引用的区别，目的？
+
+左值引用就是绑定到左值的引用；右值引用就是绑定到右值的引用。
+
+
+## 六、Thunder class
+
+在原有雷课堂的需求下，进行简化
+
+### 1、需求分析
+
+#### （1）用户登录
+
+​		根据用户名和密码登录，三次密码输入错误自动退出雷课堂。根据账号类型(教师/学生)不同自动切换功能。
+​		必须包含一个账户名为:Admin，密码为Admin的管理员账号，该账号用于管理所有账号的增删改。
+
+#### （2）进入 / 退出课堂
+
+​		登录成功后，要求输入教师端的IP地址(ip + port)后，连接到教师端，实现进入课堂功能并开始网络数据通信。
+​		若30秒为连接上，应弹出提示。在退出课堂或直接退出软件时应该向教师端发送注意力数据再断开连接。
+
+#### （3）音视频
+
+​		**设备切换**: 教师或学生上课前可以自主选择语音、视频输入与播放设备，在上课期间可以自由切换。
+​		**语音直播**:在开始上课时，教师端自动开始语音采集，并实时通过网络传递给连接到课堂的学生
+​		**视频共享**:在上课的过程中，会有一个视频窗口，视频来源可以是教师的摄像头输入或教师的屏幕共享。
+​		**媒体控制**:音量控制，视频分辨率，全屏显示
+​		**语音提问**:教师可以一键选择一名学生进行语音提问，选中者的麦克风将自动打开，语音将发送到其余人。
+​						教师可以一键结束语音提问。这个功能在第一版可以先不实现。
+
+​		
+
+
+
+sqlite 封装
