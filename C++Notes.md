@@ -1310,15 +1310,1449 @@ class IntArray{
 
 ### 16.1 对象关系
 
+part-of 
+has-a  
+depends-on
+member-of
+
+### 16.2 组合 Composition
+
+在生活中，较大的物件都是有更小的东西组成的。我们叫这个为对象组合。
+对象组合模型在对象之间有"has a"的关系。比如 Your computer has a CPU.
+对象组合有两种基本的类型:组合和聚合
+
+#### 组合 
+
+要成为组合，对象和part要满足一下关系:
+
+- 部分（成员）是对象（类）的一部分     
+- 部件（成员）一次只能属于一个对象（类）    
+-  部分（成员）的存在由对象（类）管理     
+- 部分（成员）不知道对象（类）的存在
+
+组合关系是部分-整体关系，其中**部分必须构成整个对象的一部分**。  例如，心脏是人身体的一部分。  组合中的部分只能是一个对象的一部分。  一颗属于一个人身体的心脏不能同时成为其他人身体的一部分。
+在组合关系中，**对象负责部件的存在**。  大多数情况下，这意味着在创建对象时创建部件，并在销毁对象时销毁部件。
+**部分不知道整体的存在**。你的心脏幸福地运转着，却没有意识到它是更大结构的一部分。  我们称之为**单向关系**，因为身体知道心脏，但相反心脏不知道有身体的存在。  
+请注意，**组合与部件的可转移性无关**。  心脏可以从一个身体移植到另一个身体。  但是，即使移植后，它仍然满足组成的要求（心脏现在归接受者所有，除非再次转移，否则只能是接受者对象的一部分）。
+下面来看一个无处不在的例子: Fraction 分数类
+
+```c++
+class Fraction
+{
+private:
+	int m_numerator;
+	int m_denominator;
+public:
+	Fraction(int numerator=0, int denominator=1)
+		: m_numerator{ numerator }, m_denominator{ denominator } {
+		// We put reduce() in the constructor to ensure any fractions we make get reduced!
+		// Since all of the overloaded operators create new Fractions, we can guarantee this will get called here
+		reduce();
+	}
+};
+```
+
+这个类有两个数据成员：分子和分母。  分子和分母是分数的一部分（包含在分数中）。  它们一次不能属于多个分数。   分子和分母不知道它们是分数的一部分，它们只是保存整数。  创建 Fraction 实例时，将创建分子和分母。   当分数实例被销毁时，分子和分母也被销毁。
+
+组合是在 C++ 中最容易实现的关系类型之一。  它们通常被创建为具有普通数据成员的结构或类，它们的生命周期与类实例本身的生命周期绑定。  需要进行动态分配或解除分配的组合可以使用指针数据成员来实现。  在这种情况下，组合类应该负责自己（而不是类的用户）进行所有必要的内存管理。  一般来说，如果你可以使用组合来设计一个类，那么你应该使用组合来设计一个类。  使用组合设计的类直接、灵活且健壮
+
+在组合模式下使用子类的好处:
+
+- 每个单独的类都可以保持简单明了，专注与自己的任务。
+- 使得子类可以重用
+- 父类可以让子类完成大部分繁重的工作，而专注于协调子类间的数据流。
+
+### 16.3 聚合 Aggregation
+
+要符合聚合条件，整个对象及其部分必须具有以下关系： 
+
+- 部分（成员）是对象（类）的一部分
+- 部件（成员）一次可以属于多个对象（类)
+- 部分（成员）不由对象（类）管理 
+- 部分（成员）不知道对象（类）的存在
+
+与组合一样，聚合仍然是部分-整体的关系，部分包含在整体中，并且是单向关系。  但是，与组合不同的是，部件一次可以属于多个对象，并且整个对象不对部件的存在和寿命负责。  创建聚合时，聚合不负责创建部件。  当聚合被销毁时，聚合不负责销毁部分。
+例如：考虑个人与家庭地址的关系，每个人都会有一个地址，但是该地址可以同时属于多个人，如家庭成员或者室友。这个地址可能在此人来之前就存在，且在此人离开后依然存在。一个人可以知道自己住在哪个地址，地址却不知道人们住在哪里。这就是一种聚合关系。
+
+#### 实现聚合
+
+在组合中，我们通常使用普通成员变量(或动态分配后的指针)来将我们的部分添加到组合中。
+在聚合中，我们依然将部分添加为成员变量，但是该成员变量通常是个引用或指针，指向类范围外创建的对象。所以聚合要么将指向的对象作为构造函数参数，要么从空part开始，然后通过访问函数或运算符来添加part子对象。
+聚合下的part存在与类范围之外，当聚合类被销毁，指针或引用被销毁但part本身还存在。
+示例: 老师与部门，简化下一个部门仅能容纳一名教师，且老师将不知道会入职哪个部门。
+
+```c++
+#include <iostream>
+#include <string>
+
+class Teacher{
+private:
+  std::string m_name{};
+public:
+  Teacher(const std::string& name)
+      : m_name{ name } {}
+  const std::string& getName() const { return m_name; }
+};
+
+class Department{
+private:
+  const Teacher& m_teacher; // This dept holds only one teacher for simplicity, but it could hold many teachers
+
+public:
+  Department(const Teacher& teacher)
+      : m_teacher{ teacher } {}
+};
+
+int main()
+{
+  // Create a teacher outside the scope of the Department
+  Teacher bob{ "Bob" }; // create a teacher
+  
+  { // Create a department and use the constructor parameter to pass
+    // the teacher to it.
+    Department department{ bob };
+  } // department goes out of scope here and is destroyed
+  // bob still exists here, but the department doesn't
+  std::cout << bob.getName() << " still exists!\n";
+  return 0;
+}
+```
+
+在这个例子里面，Bob老师在部门外独立创建的，然后通过部门的构造函数传递进部门。当部门解散后，教师的部门信息(引用)也销毁了，但是老师本人没有销毁，直到main结束。part 的生命周期不由聚合类来掌控。
+
+#### 组合和聚合总结
+
+**组合**：通常使用普通成员变量 ，如果类自己处理对象分配/释放，则可以使用指针成员 ，负责零件的创建/销毁
+**聚合**：通常使用指向或引用成员，部件在于聚合类范围之外创建，不负责创建/销毁零件
+
+组合和聚合可以在同一个类中实现，例如，一个部门可以有一个总部门名字和一些技术小组，并通过组合添加到部门，并和部门一起创建或销毁。另一方面，老师将通过聚合的方式添加到部门，并独立创建销毁。
+使用聚合时，要注意外部不在有指向部件的指针或引用，或忘记清理，则会导致内存泄露。
+
+### std::reference_wrapper
+
+在上面的 Department/Teacher 示例中，我们在 Department 中使用了一个引用来存储教师。   如果只有一个老师，这很好用，但是如果一个部门有多个老师怎么办？  我们想将这些教师存储在某种列表（例如  std::vector）中，但固定数组和各种标准库列表不能保存引用（因为列表元素必须是可分配的，而引用不是对象，不能重新分配)。
+``std::vector<const Teacher&> m_teachers{}; // Illegal``
+我们可以使用指针代替引用，但这会打开存储或传递空指针的可能性。  在 Department/Teacher 示例中，我们不想允许空指针。  为了解决这个问题，有 std::reference_wrapper。  本质上，std::reference_wrapper 是一个类似于引用的类，但也允许赋值和复制，因此它与 std::vector 等列表兼容。
+（1）使用std::reference_wrapper 需要包含<functional>头文件
+（2）当您创建 std::reference_wrapper 包装对象时，该对象不能是匿名对象
+       （因为匿名对象具有表达式范围，这会使引用悬空）。 
+（3） 当您想将对象从 std::reference_wrapper 中取出时，可以使用 get() 成员函数。
+
+```c++
+#include <functional> // std::reference_wrapper
+#include <iostream>
+#include <vector>
+#include <string>
+
+int main(){
+  std::string tom{ "Tom" };
+  std::string berta{ "Berta" };
+    
+  // these strings are stored by reference, not value
+  std::vector<std::reference_wrapper<std::string>> names{ tom, berta }; 
+
+  std::string jim{ "Jim" };
+  names.push_back(jim);
+
+  for (auto name : names) {
+    // Use the get() member function to get the referenced string.
+    name.get() += " Beam";
+  }
+  std::cout << jim << '\n'; // Jim Beam
+  return 0;
+}
+```
+
+### 16.4 关联 Association
+
+在前面的讲解中，我们知道，对象组合用于关系建模，其中复杂的对象将由一个或多个相似的对象构成。
+在本课中，我们将研究两个原本不相关的对象之间的一种较弱的关系类型，称为关联。
+
+#### 关联
+
+关联关系，有以下的描述:
+
+- 关联的对象(成员)与对象(类)没有包含从属的关系。
+- 关联的对象(成员)可以同时属于多个对象(类)
+- 关联对象（成员）的存在不受对象（类）管理
+- 关联对象（成员）可能知道也可能不知道对象（类）的存在
+  即，关联关系可以是单向的也可以是双向的。
+
+举个栗子，就比如医生和患者的关系，医生虽然和患者有关系，但不是部分与整体(对象组合)的关系。一个医生一天可以看很多病人，一个病人也可以看很多医生。两者的生命周期互不相关。
+我们可以称关联模型为**user-a**关系。医生"使用"患者(以赚取收入)，患者"使用"医生(以获取健康)
+
+#### 实现关联
+
+关联是一种广泛的关系，它们可通过多种不同的方式实现。  **大多数情况下，关联是使用指针实现的**。
+在这个例子中，我们将实现双向的医生/患者关系，因为医生知道他们的患者是谁是有意义的，反之亦然。
+
+```c++
+#include <functional>
+#include <iostream>
+#include <string>
+#include <vector>
+
+class Patient; 
+
+class Doctor{
+    public:
+    Doctor(const std::string& name):m_name{name} {}
+
+    void addPatient(Patient& patient);
+
+    friend std::ostream& operator<<(std::ostream& out, const Doctor& doctor);
+
+    const std::string& getName() const { return m_name; }
+
+    private:
+    std::string m_name{};
+    std::vector<std::reference_wrapper<const Patient>> m_patient{};
+};
+
+class Patient{
+    public:
+    Patient(const std::string& name):m_name{name} {}
+
+    void addDoctor(Doctor& doctor) {
+        m_doctor.push_back(doctor);
+    }
+
+    // We'll implement this function below Doctor since we need Doctor to be defined at that point
+	friend std::ostream& operator<<(std::ostream& out, const Patient& patient);
+
+	const std::string& getName() const { return m_name; }
+
+    // We'll friend Doctor::addPatient() so it can access the private function Patient::addDoctor()
+	friend void Doctor::addPatient(Patient& patient);
+
+    private:
+    std::string m_name{};
+    std::vector<std::reference_wrapper<const Doctor>> m_doctor{};
+};
+
+void Doctor::addPatient(Patient& patient){
+	// Our doctor will add this patient
+	m_patient.push_back(patient);
+
+	// and the patient will also add this doctor
+	patient.addDoctor(*this);
+}
+
+std::ostream& operator<<(std::ostream& out, const Doctor& doctor){
+	if (doctor.m_patient.empty()){
+		out << doctor.m_name << " has no patients right now";
+		return out;
+	}
+
+	out << doctor.m_name << " is seeing patients: ";
+	for (const auto& patient : doctor.m_patient)
+		out << patient.get().getName() << ' ';
+
+	return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const Patient& patient){
+	if (patient.m_doctor.empty()){
+		out << patient.getName() << " has no doctors right now";
+		return out;
+	}
+
+	out << patient.m_name << " is seeing doctors: ";
+	for (const auto& doctor : patient.m_doctor)
+		out << doctor.get().getName() << ' ';
+
+	return out;
+}
+
+int main(){
+	// Create a Patient outside the scope of the Doctor
+	Patient dave{ "Dave" };
+	Patient frank{ "Frank" };
+	Patient betsy{ "Betsy" };
+
+	Doctor james{ "James" };
+	Doctor scott{ "Scott" };
+
+	james.addPatient(dave);
+
+	scott.addPatient(dave);
+	scott.addPatient(betsy);
+
+	std::cout << james << '\n';
+	std::cout << scott << '\n';
+	std::cout << dave << '\n';
+	std::cout << frank << '\n';
+	std::cout << betsy << '\n';
+
+	return 0;
+}
+
+//类的友元函数是定义在类外部，但是有权访问类内私有成员和保护成员。
+//重载operator<<，返回引用为了连续运算；cout << jame --> operator(cout, jame)
+```
 
 
-## 17 继承
+一般来说，如果能使用单向关联，最好避免使用双向关联。
+
+#### 小结
+
+![](./pic/16-4-1.png)
+
+### 16.5 依赖 Dependencies
+
+当一个对象调用另一个对象的功能来完成某些任务时，就会产生依赖关系。这是一种比依赖还弱的关系。但是对依赖对象的任何修改都会破坏依赖调用者的功能。依赖始终是单向关系。
+最常用的``std::cout``就是使用依赖的例子，我们使用 std::cout 的类使用它来完成将某些内容打印到控制台的任务。
+示例:
+
+```c++
+#include <iostream>
+
+class Point {
+private:
+    double m_x, m_y, m_z;
+public:
+    Point(double x=0.0, double y=0.0, double z=0.0): m_x(x), m_y(y), m_z(z) {}
+    friend std::ostream& operator<< (std::ostream &out, const Point &point);
+};
+
+std::ostream& operator<< (std::ostream &out, const Point &point){
+    // Since operator<< is a friend of the Point class, we can access Point's members directly.
+    out << "Point(" << point.m_x << ", " << point.m_y << ", " << point.m_z << ")";
+    return out;
+}
+
+int main() {
+    Point point1(2.0, 3.0, 4.0);
+    std::cout << point1;
+    return 0;
+}
+```
+
+在上面的代码中，``Point`` 与 ``std::cout`` 没有直接关系，但它依赖于 ``std::cout``，因为 ``operator<<`` 使用 ``std::cout`` 将 ``Point ``打印到控制台。
+
+#### 关联和依赖的区别
+
+代码层面的最主要区别在于: 依赖以调用某个类的成员函数或运算符操作，而关联的关系建立在类属性的基础上。
+
+### 16.X 小结
+
+![](./pic/16-x-1.png)
+
+
+
+## 17  继承
 
 ### 17.1 继承简介
 
+在上一章我们讨论了对象组合，其中复杂的类由更简单的类和类型构成。而对象组合只是C++中允许我们构造复杂类的两种方法之一。另一种就是继承，为两个对象之间的"``is-a``"关系建模。
+与对象组合不同，它涉及通过组合和连接其他对象来创建新对象，继承涉及通过直接获取其他对象的属性和行为，然后对其进行扩展或专门化来创建新对象。  
+
+在本章中，我们将探索继承在 C++ 中如何工作的基础知识。
 
 
-### 8.14 — 函数模板实例化
+### 17.2 继承基础
+
+### 17.3 派生类构造的顺序
+
+上代码：
+
+```c++
+class Base{
+public:
+    int m_id {};
+    Base(int id=0)
+        : m_id(id) {}
+
+    int getId() const { return m_id; }
+};
+
+class Derived: public Base {
+public:
+    double m_cost {};
+    Derived(double cost=0.0)
+        : m_cost(cost) {}
+
+    double getCost() const { return m_cost; }
+};
+```
+
+在这个例子中派生类Derived继承了基类Base，我们可能会想Derived 拷贝了Base的成员到自己那儿。然而，事实并非如此。  相反，我们可以将 Derived 视为由两部分组成的类：一部分 Derived 和一部分 Base。
+
+```c++
+int main() {
+    Base base;
+    return 0;
+}
+```
+
+对于非派生类，如Base，它的初始化是通过调用默认构造函数完成的。
+下面看一下派生类Derived的初始化
+
+```c++
+int main() {
+    Derived derived;
+    return 0;
+}
+```
+
+派生实际上是两部分：基础部分和派生部分。  
+当 C++ 构造派生对象时，它是分阶段进行的。  首先，最基类（在继承树的顶部）首先被构造。  然后依次构造每个子类，直到最后构造最子类（在继承树的底部）。
+
+### 17.4  派生类的构造与初始化
+
+看到之前的例子:
+
+```c++
+class Base {
+public:
+    int m_id {};
+    Base(int id=0)
+        : m_id{ id } {}
+
+    int getId() const { return m_id; }
+};
+
+class Derived: public Base{
+public:
+    double m_cost {};
+    Derived(double cost=0.0)
+        : m_cost{ cost } {}
+
+    double getCost() const { return m_cost; }
+};
+```
+
+对于非派生类，构造函数只需担心自己的成员。  例如，考虑 Base。  我们可以像这样创建一个 Base 对象:
+
+```c++
+int main() {
+    Base base{ 5 }; // use Base(int) constructor
+    return 0;
+}
+```
+
+下面是实例化 base 时实际发生的情况：
+	1. 为base对象开辟内存     
+	2. 调用适当的 Base 构造函数  
+	3. 初始化列表初始化变量     
+	4. 构造函数执行
+    5. 控制权返回给调用者
+
+对于派生类:
+
+```c++
+int main() {
+    Derived derived{ 1.3 }; // use Derived(double) constructor
+    return 0;
+}
+```
+
+下面是派生类实例化时做的:
+
+	1. 为派生对象derived开辟内存（足够用于基础和派生部分） 
+ 	2. 调用适当的派生构造函数来构造 Base 对象。  如果未指定基本构造函数，则将使用默认构造函数。
+ 	3. 初始化列表初始化变量 
+ 	4. 构造函数体执行 
+ 	5. 控制权返回给调用者
+
+这种情况与非继承情况之间唯一真正的区别是，在派生构造函数可以做任何实质性的事情之前，首先调用基础构造函数。  Base 构造函数设置对象的 Base 部分，将控制权返回给 Derived 构造函数，并允许 Derived 构造函数完成其工作。
+
+#### 初始化基类成员
+
+当前 Derived 类的当前缺点之一是，当我们创建一个 Derived 对象时，无法初始化 m_id。  
+如果我们想在创建派生对象时同时设置 m_cost（从对象的派生部分）和 m_id（从对象的基础部分）怎么办？  
+新手经常会这样写：
+
+```c++
+class Derived: public Base {
+public:
+    double m_cost {};
+    Derived(double cost=0.0, int id=0)
+        // does not work
+        : m_cost{ cost }
+        , m_id{ id } {}
+
+    double getCost() const { return m_cost; }
+};
+//output error：
+inherit.cpp: In constructor ‘Derived::Derived(double, int)’:
+inherit.cpp:18:11: error: class ‘Derived’ does not have any field named ‘m_id’
+   18 |         , m_id{ id } {}
+      |           ^~~~
+```
+
+这样乍一看没问题，在派生类中的初始化列表里初始化基类的成员变量。但是，C++禁止类在构造函数的初始化列表中初始化继承的成员变量。  即，**成员变量的值只能在与该变量属于同一类的构造函数的初始化列表中设置**。
+为什么C++要禁止这么做？
+答案与const及引用变量有关，如果m_id是const， 由于const 变量必须在创建时用一个值初始化，所以基类构造函数必须在创建变量时设置它的值。 但是，当基类构造函数完成时，派生类构造函数的初始化列表就会被执行。  然后每个派生类都有机会初始化该变量，可能会更改其值！  通过将变量的初始化限制为这些变量所属类的构造函数，C++ 可确保所有变量只初始化一次。
+继承来的变量虽然不能在初始化列表初始化，但是可以在构造函数体内赋值。新手会如下写:
+
+```c++
+class Derived: public Base {
+public:
+    double m_cost {};
+    Derived(double cost=0.0, int id=0)
+        // does not work
+        : m_cost{ cost }
+         {m_id = id;}
+
+    double getCost() const { return m_cost; }
+};
+```
+
+但是如果m_id是const或引用，依然会报错，因为必须在基类的构造函数的初始化列表中初始化const值和引用。
+那么我们在创建Derived类对象时如何正确的初始化m_id呢？
+在上面的例子中我们实例化派生类对象时，如果没有指定基类的构造函数，就会默认使用基类的默认构造函数。所以我们只要明确选择调用哪一个基类构造函数。
+
+```c++
+class Derived:public Base{
+public:
+    double m_cost {};
+    Derived(double cost=0.0, int id=0)
+        :Base{id}  //调用Base(int)构造函数
+    	,m_cost{ cost } {}
+
+    double getCost() const { return m_cost; }
+};
+
+int main() {
+    Derived derived{1.3, 5};
+    return 0;
+}
+```
+
+再来分析下，实例化派生类Derived时，内部的流程:
+
+1. 分配用于派生类的内存
+2. 调用Derived(double, int)构造函数，其中cost=1.3，id=5
+3. 编译器查看我们是否要求特定的基类构造函数。有，调用Base(int)
+4. 基类构造函数初始化列表将m_id设置为5
+5. 基类构造函数体执行并返回
+6. 派生类构造函数初始化列表将m_cost设置为1.3
+7. 派生类构造函数执行并返回
+
+**注意：**在派生类构造函数初始化列表中调用Base的构造函数的位置无关紧要 —— 它始终会首先执行
+
+#### 小结
+
+在构造派生类时，派生类构造函数负责确定调用哪个基类构造函数。  如果未指定基类构造函数，则将使用默认的基类构造函数。  在这种情况下，如果找不到（或默认创建）默认基类构造函数，编译器将显示错误。  然后按照从最基础到最派生的顺序构造这些类。
+
+
+
+### 17.5  继承与访问说明符
+
+| 基类      | 公有继承     | 私有继承     | 保护继承     |
+| --------- | ------------ | ------------ | ------------ |
+| public    | public       | private      | protected    |
+| protected | protected    | private      | protected    |
+| private   | Inaccessible | Inaccessible | Inaccessible |
+
+
+
+### 17.6 向派生类添加功能
+
+在前面的介绍中，我们使用派生类的最大好处之一是能够重用已编写的代码。  可以继承基类功能，然后添加新功能、修改现有功能或隐藏不需要的功能。  在接下来的课中，我们将仔细研究这些事情是如何完成的。  
+首先，让我们从一个简单的基类开始：
+
+```c++
+#include <iostream>
+
+class Base{
+protected:
+    int m_value {};
+public:
+    Base(int value)
+        : m_value { value } {}
+
+    void identify() const { std::cout << "I am a Base\n"; }
+};
+```
+
+现在再创建一个继承于Base的派生类，并要求在派生类对象实例化时设置m_value的值 -- 在派生类构造函数初始化列表中调用基类构造函数:
+
+```c++
+class Derived {
+public:
+    Derived(int value):Base{value}{}
+};
+```
+
+向派生类添加新功能  
+在上面的例子中，因为我们可以访问 Base 类的源代码，所以我们可以根据需要直接向 Base 添加功能。
+我们一般会访问基类但不建议修改它或不能修改。所以最好的解决方案就是派生出自己的类，将自己想要的功能添加到-派生类。
+
+```c++
+class Derived {
+public:
+    Derived(int value):Base{value}{}
+    int getValue() const { return m_value; }
+};
+```
+
+
+
+### 17.7 调用/重载继承的函数
+
+#### 调用基类函数
+
+ 当使用派生类对象调用成员函数时，编译器首先查看该成员是否存在于派生类中。  如果没有，它开始沿着继承链向上走并检查该成员是否已在任何父类中定义。  它找到的第一个并使用。
+
+```c++
+class Base{
+private:
+	void print() const {
+		std::cout << "Base";
+	}
+};
+
+class Derived : public Base {
+public:
+	void print() const {
+		std::cout << "Derived ";
+	}
+};
+
+
+int main() {
+	Derived derived;
+	derived.print(); // calls derived::print(), which is public
+	return 0;
+}
+```
+
+注意，在派生类中重新定义函数时，派生函数不会继承基类中同名函数的访问说明符。  它使用派生类中定义的任何访问说明符。  因此，在基类中定义为私有的函数可以在派生类中重新定义为公共，反之亦然！
+
+#### 在基类函数的基础上重写派生类函数
+
+有时我们不想完全替换基类函数，而是想为其添加附加功能。  在上面的例子中，注意 Derived::print() 完全隐藏了  Base::print()！  这可能不是我们想要的。  可以让我们的派生函数调用同名函数的基本版本（为了重用代码），然后向其添加附加功能
+
+```c++
+class Derived : public Base {
+public:
+	void print() const {
+        Base::prinf();  // call Base::identify() first
+		std::cout << "Derived ";  // then identify ourselves
+	}
+};
+//如果prinf()前不加作用域限定符，将默认调用this->prinf(),则无限循环
+```
+
+#### 派生类访问基类的友元函数
+
+一般有下面两种情况需要使用友元函数：
+（1）运算符重载的某些场合需要使用友元。
+（2）两个类要共享数据的时候。
+由于友元函数是类外函数，使用作用域限定符来访问基类的友元函数行不通。   
+
+### 17.8  隐藏继承的功能
+
+我们可以在派生类中更改继承成员的访问说明符。使用using来实现, 看下面代码:
+
+```c++
+#include <iostream>
+
+class Base {
+private:
+    int m_value {};
+public:
+    Base(int value)
+        : m_value { value } {}
+protected:
+    void printValue() const { std::cout << m_value; }
+};
+```
+
+未完...
+
+### 17.9 多重继承
+
+未完...
+
+## 18 虚函数
+
+在前一章中，我们学习了所有关于如何使用继承从现有类派生新类的知识。  在本章中，我们将关注继承的最重要和最强大的方面之一——虚函数。  但在我们讨论什么是虚函数之前，让我们先列一下我们为什么需要它们。
+
+记住下面三个问题，带着问题寻找答案?
+
+1. 为什么要引入虚函数？
+2. 为什么要用指针或引用来实现虚函数？
+3. 为什么使用派生类和基类对象之间的直接赋值不能实现？
+
+### 18.1 指向派生对象基类的指针与引用
+
+在之前的讨论中我们已经了解到在创建派生类时，它会由两个部分组成:  一部分用于继承的类，一部分由于其自身。
+来看一个简单的例子:
+
+```c++
+#include <string>
+
+class Base {
+   public:
+    Base(int value) : m_value{value} {}
+    std::string getName() { return "Base"; }
+    int getValue(void) { return m_value; }
+
+   private:
+    int m_value{};
+};
+
+class Derived : public Base {
+   public:
+    Derived(int value) : Base{value} {}
+    std::string getName() const { return "Derived"; }
+    int getValueDouble() const { return 2 * m_value; }
+};
+```
+
+当我们创建Derived 对象时，它包含一个 Base 部分（最先构造）和一个 Derived 部分（第二个构造）。
+请记住，继承意味着两个类之间的 is-a 关系。  由于 Derived 是一个(is-a) Base，因此 Derived 包含一个 Base 部分是合理的。
+
+#### 指针、引用和派生类
+
+以下通过派生类的指针，引用来使用派生类:
+
+```c++
+int main() {
+    Derived derived{8};
+    std::cout << "derived is a" << derived.getName() << "and has value "
+              << derived.getValue() << '\n';
+    Derived& refDerived{derived};
+    std::cout << "refDerived is a" << refDerived.getName() << "and has value "
+              << refDerived.getValue() << '\n';
+    Derived* ptrDerived{&derived};
+    std::cout << "ptrDerived is a" << ptrDerived->getName() << "and has value "
+              << ptrDerived->getValue() << '\n';
+    return 0;
+}
+//output:
+derived is aDerived and has value 8
+refDerived is aDerived and has value 8
+ptrDerived is aDerived and has value 8
+```
+
+那么有一个问题？C++是否允许我们使用派生类Derived对象来初始化一个基类Base指针或引用？
+
+```c++
+int main() {
+    Derived derived{8};
+    std::cout << "derived is a" << derived.getName() << "and has value "
+              << derived.getValue() << '\n';
+    Base& refBase{derived};
+    std::cout << "refBase is a" << refBase.getName() << "and has value "
+              << refBase.getValue() << '\n';
+    Base* ptrBase{&derived};
+    std::cout << "ptrBase is a" << ptrBase->getName() << "and has value "
+              << ptrBase->getValue() << '\n';
+    return 0;
+}
+//output
+derived is a Derivedand has value 8
+refBase is a Baseand has value 8
+ptrBase is a Baseand has value 8
+```
+
+由于refBase和ptrBase是基类的引用和指针，所以它们只能看见Base的成员(或Base继承的任何类)，而不能看见Derived中的任何内容，如: Derived::getValueDoubled()
+
+#### 用于指向基类的指针和引用
+
+通过上面的例子，大家可能会有疑问，当我只使用派生类对象时，我为什么要设置一个基类的指针或引用来指向派生类？下面看一个例子：
+
+```c++
+#include <iostream>
+#include <string_view>
+#include <string>
+
+class Animal {
+protected:
+    std::string m_name;
+
+    //将构造函数设置为Protected,是因为我们不希望直接创建出一个抽象的
+    // 动物类，但我们仍然可以通过继承来构造
+    Animal(std::string_view name)
+        : m_name{ name } {}
+
+    // To prevent slicing (covered later)
+    Animal(const Animal&) = default;
+    Animal& operator=(const Animal&) = default;
+
+public:
+    std::string_view getName() const { return m_name; }
+    std::string_view speak() const { return "???"; }
+};
+
+class Cat: public Animal {
+public:
+    Cat(std::string_view name)
+        : Animal{ name } {}
+    std::string_view speak() const { return "Meow"; }
+};
+
+class Dog: public Animal {
+public:
+    Dog(std::string_view name)
+        : Animal{ name } {}
+    std::string_view speak() const { return "Woof"; }
+};
+
+int main() {
+    const Cat cat{ "Fred" };
+    std::cout << "cat is named " << cat.getName() << ", and it says " << cat.speak() << '\n';
+
+    const Dog dog{ "Garbo" };
+    std::cout << "dog is named " << dog.getName() << ", and it says " << dog.speak() << '\n';
+
+    const Animal *pAnimal{ &cat };
+    std::cout << "pAnimal is named " << pAnimal->getName() << ", and it says " << pAnimal->speak() << '\n';
+
+    pAnimal = &dog;
+    std::cout << "pAnimal is named " << pAnimal->getName() << ", and it says " << pAnimal->speak() << '\n';
+
+    return 0;
+}
+```
+
+**理由1：**首先，假设我们想编写一个打印特定动物名称和声音的函数。  如果不使用指向基类的指针，则必须使用重载函数来实现，如下:
+
+```c++
+void report(const Cat& cat){
+    std::cout << cat.getName() << " says " << cat.speak() << '\n';
+}
+
+void report(const Dog& dog){
+    std::cout << dog.getName() << " says " << dog.speak() << '\n';
+}
+```
+
+实现也不难，但是如果有一百种动物时我们就得编写100个近乎相同的函数。而这些函数仅仅只是动物类型不同。由于cat和dog都包含animal基类，所以不难想到会实现一下函数:
+
+```c++
+void report(const Animal& rAnimal) {
+    std::cout << rAnimal.getName() << " says " << rAnimal.speak() << '\n';
+}
+```
+
+这个函数允许我们传入从Animal派生出来的任何动物类，但是由于rAnimal是Animal的一个引用，所以rAnimal.speak()调用的是Animal::speak()，而不是派生出的speak版本。
+
+**理由2：**其次如果我们想要将3只猫和3只狗放在一个数组中以便访问。因为数组只能保存一种类型的对象，所以必须为每一个派生类创建一个不同的数组，如下:
+
+```c++
+#include <array>
+#include <iostream>
+
+int main()
+{
+
+   const std::array<Cat, 3> cats{{ { "Fred" }, { "Misty" }, { "Zeke" } }};
+   const std::array<Dog, 3> dogs{{ { "Garbo" }, { "Pooky" }, { "Truffle" } }};
+
+    for (const auto& cat : cats){
+        std::cout << cat.getName() << " says " << cat.speak() << '\n';
+    }
+
+    for (const auto& dog : dogs){
+        std::cout << dog.getName() << " says " << dog.speak() << '\n';
+    }
+    return 0;
+}
+```
+
+同样，当动物类型有100种时，就需要创建100个数组来保存不同的动物类型。由于不同动物都是从Animal派生的，不难想到会用一个Animal指针数组来保存所有动物的指针。如下:
+
+```c++
+#include <array>
+#include <iostream>
+
+int main() {
+    const Cat fred{ "Fred" };
+    const Cat misty{ "Misty" };
+    const Cat zeke{ "Zeke" };
+
+    const Dog garbo{ "Garbo" };
+    const Dog pooky{ "Pooky" };
+    const Dog truffle{ "Truffle" };
+
+    const std::array<const Animal*, 6> animals{ &fred, &garbo, &misty, &pooky, &truffle, &zeke };
+
+    for (const auto animal : animals){
+        std::cout << animal->getName() << " says " << animal->speak() << '\n';
+    }
+
+    return 0;
+}
+//output
+Fred says ???
+Garbo says ???
+Misty says ???
+Pooky says ???
+Truffle says ???
+Zeke says ???
+```
+
+数组“animals”的每个元素都是一个指向 Animal 的指针，这意味着animal->speak() 将调用 Animal::speak() 而不是 speak() 的派生类版本。 
+
+上面两种方法都可以改善原来的代码，但是都有一个共同的问题：指向基类的指针或引用只能调用函数的基版本，而不是派生的版本。那如何才能指向派生版本？在下一节，我们来解决这个问题。
+
+> *基类指针指向派生类对象最大得优势在于，我们可以实现用数据结构存储不同类对象，并且分别展示出不同类对象的共有特性。*
+
+### 18.2 虚函数与多态
+
+在上一节课程中，我们使用基类指针/引用可以简化代码，但都有个问题：基类指针或引用只能调用函数的基类版本，而不是派生版本。这节课我们将讨论如何使用虚函数来解决这个问题。
+
+#### 虚函数与多态
+
+在基类中，可以将成员函数分为两种：
+一种是基类希望其派生类进行覆盖的函数；
+另一种是基类希望派生类直接继承而不要改变的函数。
+对于前者，基类通常将其定义为虚函数。当我们使用指针或引用调用虚函数时，根据引用或指针所绑定的对象类型不同，来决定调用基类版本还是派生版本。
+看到之前的栗子：
+
+```c++
+class Animal {
+protected:
+    std::string m_name;
+
+    //将构造函数设置为Protected,是因为我们不希望直接创建出一个抽象的
+    // 动物类，但我们仍然可以通过继承来构造
+    Animal(std::string_view name)
+        : m_name{ name } {}
+
+    // To prevent slicing (covered later)
+    Animal(const Animal&) = default;
+    Animal& operator=(const Animal&) = default;
+
+public:
+    std::string_view getName() const { return m_name; }
+    virtual std::string_view speak() const { return "???"; }  //声明为virtual
+};
+
+class Cat: public Animal {
+public:
+    Cat(std::string_view name)
+        : Animal{ name } {}
+    std::string_view speak() const { return "Meow"; }
+};
+
+class Dog: public Animal {
+public:
+    Dog(std::string_view name)
+        : Animal{ name } {}
+    std::string_view speak() const { return "Woof"; }
+};
+
+void report(const Animal& animal) {
+    std::cout << animal.getName() << " says " << animal.speak() << '\n';
+}
+
+int main(){
+    Cat cat{ "Fred" };
+    Dog dog{ "Garbo" };
+    report(cat);
+    report(dog);
+    return 0;
+}
+//output
+Fred says Meow
+Garbo says Woof
+```
+
+当程序运行到report内的animal.speak()时，由于其为虚函数，会使用派生类中的函数将其覆盖。
+注意:
+
+1. 对虚函数的类型是由运行时，引用或指针所绑定的实际类型决定的。
+2. 虚函数的动态绑定只有在通过指针或引用调用虚函数才会发生
+3. 一旦基类某函数被声明为虚函数，其所有派生类中它都是虚函数
+4. 派生类覆盖了某个虚函数。该函数在基类与派生类中的形参与返回值要严格匹配
+5. 永远不要从构造函数或析构函数调用虚函数。
+
+#### 多态 polymorphism
+
+多态，字面意思就是多种类型
+在现实生活中，多态就是同一个事物在不同场景下的多种形态。
+在面向对象中，多态是指通过基类指针或引用，在运行时动态调用实际绑定对象的行为。
+![](./pic/18-1.png)
+
+*好文推荐：https://www.cnblogs.com/nbk-zyc/p/12274178.html*
+
+#### 虚函数的缺点
+
+​	**效率低下**——解析虚函数调用比解析常规函数调用花费的时间更长。  
+​	此外，编译器还必须为每个具有一个或多个虚函数的类对象分配一个额外的指针。  
+
+#### 测试
+
+见：https://www.learncpp.com/cpp-tutorial/virtual-functions/
+
+18.3 
+
+#### oevrride
+
+如果在派生类中定义了一个与基类虚函数同名但形参不同的函数，编译器将不会覆盖基类的版本，而是新定义一个版本。一般情况下，派生类函数没有覆盖基类版本，可能是函数声明写错了。但是编译器并不会报错，调试会十分困难，所以在C++11中，使用``override``关键字来说明派生类中的虚函数，使语义更清晰，同时也便于调试。如果用``override``标记了某个函数，但该函数并没有覆盖已存在的虚函数，编译器就会报错。
+
+```c++
+struct B {
+    virtual void f1(int) const;
+    virtual void f2();
+    void f3();
+};
+
+struct C:public B {
+    void f1(int) const override;  //正确，f1与基类的f1匹配
+    void f2(int) override;        //错误，基类中没有如f2(int)的函数
+    void f3() override;           //错误，f3不是虚函数
+    void f4() override;			  //错误，基类中没有f4()
+}
+```
+
+#### finnal
+
+将某个函数指定为``final``,不允许之后的任何尝试覆盖该函数的操作。
+
+#### 协变返回类型
+
+在一种特殊情况下，派生类虚函数覆盖可以与基类的返回类型不同，但是仍然被视为覆盖。
+如果虚函数的返回类型是类的指针或引用，则覆盖函数可以返回指向派生类的指针或引用，这种返回类型叫做协变返回类型。
+例子如下:
+
+```c++
+#include <iostream>
+#include <string_view>
+
+class Base {
+public:
+	// This version of getThis() returns a pointer to a Base class
+	virtual Base* getThis() { std::cout << "called Base::getThis()\n"; return this; }
+	void printType() { std::cout << "returned a Base\n"; }
+};
+
+class Derived : public Base {
+public:
+	// Normally override functions have to return objects of the same type as the base function
+	// However, because Derived is derived from Base, it's okay to return Derived* instead of Base*
+	Derived* getThis() override { std::cout << "called Derived::getThis()\n";  return this; }
+	void printType() { std::cout << "returned a Derived\n"; }
+};
+
+int main() {
+	Derived d{};
+	Base* b{ &d };
+	d.getThis()->printType(); // calls Derived::getThis(), returns a Derived*, calls Derived::printType
+	b->getThis()->printType(); // calls Derived::getThis(), returns a Base*, calls Base::printType
+	return 0;
+}
+```
+
+c++不能动态选择类型，所以我们始终会获得与被调用函数的基本版本匹配的类型。
+上面的例子中，对于``d.getThis()->printType();``毫无疑问，实例化的派生类对象，调用的是Derived::getThis(), 和派生类的非虚打印函数。对于``b->getThis()->printType();``变量b是指向派生类对象的基指针，优于Base::getThis()是一个虚函数，所以最终会调用Derived::getThis()返回一个Derived*，但因为函数的基版本返回一个 Base *，所以返回的 Derived * 被向上转换为一个 Base*。  因此， Base::printType() 被调用。
+
+### 18.4 虚析构、虚赋值、覆盖虚化
+
+#### 虚析构
+
+当我们没有定义析构函数时，编译器会自动生成一个默认的析构函数。有时我们会自定义析构函数，特别是有资源要手动释放时。当我们在处理继承时，往往会把析构函数设置为虚函数。看下面一个例子:
+
+```c++
+#include <iostream>
+
+class Base {
+public:
+    ~Base() { std::cout <<"Call ~Base()\n"; }
+};
+
+class Derived:public Base{
+private:
+    int* m_array;
+public:
+    Derived(int length):m_array{new int[length]} {}
+    ~Derived() {
+        std::cout <<"Call ~Derived()\n";
+        delete[] m_array;
+    }
+};
+
+int main() {
+    Derived* derived{new Derived(5)};
+    Base* base {derived};
+    delete base;
+    return 0;
+}
+//output
+Call ~Base()
+```
+
+最终调用的是基类的析构函数，但是实际上我们希望调用派生类的析构函数，并释放派生类的资源。
+可以通过将基类和派生类的析构函数设置为虚函数来实现。如下:
+
+```c++
+...
+virtual ~Base() { std::cout <<"Call ~Base()\n"; }
+...
+virtual ~Derived() {...}
+...
+output:
+Calling ~Derived()
+Calling ~Base()
+
+```
+
+规则: 无论何时处理继承，都应该使任何显式析构函数成为虚函数。
+与普通的虚拟成员函数一样，如果基类函数是虚拟的，则所有派生的覆盖都将被视为虚拟的，无论它们是否被指定为虚拟的。  没有必要仅仅为了将析构函数标记为虚函数而创建一个空的派生类析构函数。
+指定生成默认的虚析构函数:
+``virtual ~Base() = default;``
+
+#### 虚运算符
+
+高级主题，暂时保留
+
+#### 忽略虚化
+
+在很少情况下，才会考虑到忽略函数虚化，如下:
+
+```c++
+class Base{
+public:
+    virtual ~Base() = default;
+    virtual const char* getName() const { return "Base"; }
+};
+
+class Derived: public Base{
+public:
+    virtual const char* getName() const { return "Derived"; }
+};
+```
+
+在某些情况下，我们可能希望指向 Derived 对象的 Base 指针调用 Base::getName() 而不是 Derived::getName()。  为此，只需使用范围解析运算符：
+
+```c++
+#include <iostream>
+int main(){
+    Derived derived;
+    const Base &base { derived };
+    // Calls Base::GetName() instead of the virtualized Derived::GetName()
+    std::cout << base.Base::getName() << '\n';
+
+    return 0;
+}
+```
+
+#### 是否应该将所有的析构函数声明为虚函数？
+
+在第一个例子里面，如果基类析构函数没有标记为虚函数，那么删除指向派生类对象的基类指针时，就会有内存泄露的风险。为了避免 这种情况，我们会将所有析构函数标记为虚函数。实际上这样做也有弊端 -- 会降低性能呢，因为会向类的每个实例添加一个虚指针。
+所以遵循一下规则:
+
+- 如果打算继承该类，就确保这个类的析构函数时虚函数。
+- 如果不打算继承该类，就将类标记为final，防止其他类继承该类。
+
+### 18.5 早绑定和晚绑定
+
+在这一讲和下一讲我们将会研究一下虚函数是怎么实现的?
+ 当一个 C++ 程序被执行时，它会按顺序执行，从 main() 的顶部开始。  当遇到函数调用时，执行点跳转到被调用函数的开头。  CPU怎么知道这样做呢？
+编译程序时，编译器会将 C++ 程序中的每条语句转换为一行或多行机器语言。  机器语言的每一行都有自己唯一的顺序地址。  这对于函数来说没有什么不同——当遇到一个函数时，它被转换成机器语言并给出下一个可用地址。  因此，每个函数最终都有一个唯一的地址。
+**Binding - 绑定**是指将标识符(如变量和函数名称)转换为地址的过程。尽管绑定用于变量和函数，但在本课中，我们重点关注函数绑定。
+
+#### 早绑定
+
+编译器遇到的大部分函数调用都是直接的函数调用，即直接调用函数名的语句。如下:
+
+```c++
+#include <iostream>
+
+void printValue(int value){
+    std::cout << value;
+}
+
+int main(){
+    printValue(5); // This is a direct function call
+    return 0;
+}
+```
+
+直接函数调用可以解析为早绑定的过程。早绑定(静态绑定)意味着编译器(或链接器)能够直接将标识符(函数名/变量名)与机器地址相关联。注意，所以函数都有一个唯一的地址，所以当编译器遇到函数调用时，它会用机器语言代替函数调用，告诉CPU跳转到函数地址。
+
+#### 晚绑定
+
+在某些程序中，直到程序运行时才能知道将调用哪个函数。  这称为**晚绑定**（或**动态绑定**）。  在 C++  中，获得晚绑定的一种方法是使用函数指针。  简单回顾一下函数指针，函数指针是一种指向函数而不是变量的指针。   可以通过在指针上使用函数调用运算符 (()) 来调用函数指针指向的函数。如下例:
+
+```c++
+#include <iostream>
+
+int add(int x, int y){
+    return x + y;
+}
+
+int main(){
+    // Create a function pointer and make it point to the add function
+    int (*pFcn)(int, int) = add;
+    std::cout << pFcn(5, 3) << '\n'; // add 5 + 3
+
+    return 0;
+}
+```
+
+通过函数指针调用也称为间接函数调用。
+
+```c++
+#include <iostream>
+
+int add(int x, int y)
+    return x + y;
+
+int subtract(int x, int y)
+    return x - y;
+
+int multiply(int x, int y)
+    return x * y;
+
+int main() {
+    int x;
+    std::cout << "Enter a number: ";
+    std::cin >> x;
+
+    int y;
+    std::cout << "Enter another number: ";
+    std::cin >> y;
+
+    int op;
+    do {
+        std::cout << "Enter an operation (0=add, 1=subtract, 2=multiply): ";
+        std::cin >> op;
+    } while (op < 0 || op > 2);
+
+    // Create a function pointer named pFcn (yes, the syntax is ugly)
+    int (*pFcn)(int, int) = nullptr;
+
+    // Set pFcn to point to the function the user chose
+    switch (op) {
+        case 0: pFcn = add; break;
+        case 1: pFcn = subtract; break;
+        case 2: pFcn = multiply; break;
+    }
+
+    // Call the function that pFcn is pointing to with x and y as parameters
+    // This uses late binding
+    std::cout << "The answer is: " << pFcn(x, y) << '\n';
+
+    return 0;
+}
+```
+
+在这个例子中，我们没有直接调用 add()、subtract() 或 multiply() 函数，而是将 pFcn  设置为指向我们希望调用的函数。  然后我们通过指针调用函数。  编译器无法使用早期绑定来解析函数调用 pFcn(x,  y)，因为它无法在编译时判断 pFcn 将指向哪个函数！
+后期绑定的效率稍低，因为它涉及额外的间接级别。  通过早期绑定，CPU 可以直接跳转到函数的地址。   对于后期绑定，程序必须读取指针中保存的地址，然后跳转到该地址。  这涉及一个额外的步骤，使其稍微慢一些。   但是，后期绑定的优点是它比早期绑定更灵活，因为直到运行时才需要决定调用什么函数。
+在下一课中，我们将看看如何使用后期绑定来实现虚函数。
+
+### 18.6 虚函数表
+
+详见: https://leehao.me/C-%E8%99%9A%E5%87%BD%E6%95%B0%E8%A1%A8%E5%89%96%E6%9E%90/
+为了实现虚函数，C++ 使用了一种称为虚表的特殊形式的后期绑定。  虚表是用于以动态/后期绑定方式解析函数调用的函数查找表。
+
+#### 类的虚表
+
+首先，每个使用虚函数的类(或派生自使用虚函数的类)都有自己的虚表。该表是一个指针数组，每个元素对应一个虚函数的函数指针。虚函数指针的赋值发生在编译器的编译阶段，虚表就可以构造出来了。
+来看以下的代码。类A包含虚函数vfunc1，vfunc2，由于类A包含虚函数，故类A拥有一个虚表。
+
+```c++
+class A {
+public:
+    virtual void vfunc1();
+    virtual void vfunc2();
+    void func1();
+    void func2();
+private:
+    int m_data1, m_data2;
+};
+```
+
+类A的虚表如图1所示
+![](./pic/18-6-1.jpg)
+
+#### 虚表指针
+
+虚表属于类，而不是属于类的某个具体对象。同一个类的所有对象都使用同一个虚表。
+既然对象中没有虚表，那它怎么使用虚表？
+实际上编译器会为基类添加一个隐含的成员指针(***__vptr**)，我们称为**虚表指针**。 在创建类的对象时，***__vptr**会被自动设置指向类的虚表，这样每个对象在实例化有就拥有该指向虚表的指针，由此找到虚表。
+![](./pic/18-6-2.jpg)
+
+同样，如果一个继承类也包含虚函数，那么该继承类也会有自己的虚表，该继承类的对象也会有虚表指针，用来指向它的虚表。
+
+#### 动态绑定
+
+那么C++到底是如何利用虚表和虚表指针来实现动态绑定的，看下面代码：
+
+```c++
+class A {
+public:
+    virtual void vfunc1();
+    virtual void vfunc2();
+    void func1();
+    void func2();
+private:
+    int m_data1, m_data2;
+};
+class B : public A {
+public:
+    virtual void vfunc1();
+    void func1();
+private:
+    int m_data3;
+};
+class C: public B {
+public:
+    virtual void vfunc2();
+    void func2();
+private:
+    int m_data1, m_data4;
+};
+```
+
+类A是基类，类B继承类A，类C又继承类B。类A，类B，类C，其对象模型如下图3所示。
+![](/home/tianyu/doc/LearnCpp/C++Notes/pic/18-6-3.jpg)
+
+由于这三个类都有虚函数，故编译器为每个类都创建了一个虚表，即类A的虚表（A vtbl），类B的虚表（B vtbl），类C的虚表（C vtbl）。类A，类B，类C的对象都拥有一个虚表指针，`*__vptr`，用来指向自己所属类的虚表。
+
+类A包括两个虚函数，故A vtbl包含两个指针，分别指向`A::vfunc1()`和`A::vfunc2()`。
+
+类B继承于类A，故类B可以调用类A的函数，但由于类B重写了`B::vfunc1()`函数，故B vtbl的两个指针分别指向`B::vfunc1()`和`A::vfunc2()`。
+
+类C继承于类B，故类C可以调用类B的函数，但由于类C重写了`C::vfunc2()`函数，故C vtbl的两个指针分别指向`B::vfunc1()`（指向继承的最近的一个类的函数）和`C::vfunc2()`。
+
+虽然图3看起来有点复杂，但是只要抓住“对象的虚表指针用来指向自己所属类的虚表，虚表中的指针会指向其继承的最近的一个类的虚函数”这个特点，便可以快速将这几个类的对象模型在自己的脑海中描绘出来。
+
+非虚函数的调用不用经过虚表，故不需要虚表中的指针指向这些函数。
+
+假设定义一个类B的对象bObject，bObject就包含一个虚表指针，指向类B的虚表。
+
+```c++
+int main() {
+    B bObject;
+    A *p = & bObject;
+}
+```
+
+我们声明一个类A的指针p来指向对象bObject。虽然p是基类指针只能指向基类的部分 ，但p可以访问到对象bObject的虚表指针。（B实例化时，B的基类部分中的虚表指针会指向B的虚表）
+`bObject`的虚表指针指向类B的虚表，所以`p`可以访问到B vtbl。如上图所示。
+此时，如果我们使用p来调用vFunc1()函数，会怎样，最终调用A还是B版本的vFunc1()?
+
+```c++
+int main() {
+	B bObject;
+    A *p = &bObject;
+    p->vfunc1();
+}
+```
+
+程序执行到p->vfunc1()时，会发现p是一个指针，且调用的是虚函数，接下来就会进行如下步骤:
+
+1. 首先，根据虚表指针`p->__vptr`来访问对象`bObject`对应的虚表。虽然指针`p`是基类`A*`类型，但是`*__vptr`也是基类的一部分，所以可以通过`p->__vptr`可以访问到对象对应的虚表。
+2. 然后，在虚表中查找所调用的函数对应的条目。由于虚表在编译阶段就可以构造出来了，所以可以根据所调用的函数定位到虚表中的对应条目。对于`p->vfunc1()`的调用，B vtbl的第一项即是`vfunc1`对应的条目。
+3. 最后，根据虚表中找到的函数指针，调用函数。从图3可以看到，B vtbl的第一项指向`B::vfunc1()`，所以`p->vfunc1()`实质会调用`B::vfunc1()`函数。
+
+可以把以上三个调用函数的步骤用以下表达式来表示：
+``(*(p->__vptr)[n])(p)``
+可以看到，通过使用虚函数表，即使是使用基类的指针来调用函数，也可以正确调用到运行中实际对象的虚函数。
+
+#### 调用虚函数比非虚函数慢的原因
+
+分析之后，很明显，调用虚函数，我们首先得使用虚表指针来获取虚表，然后在虚表中索引出正确的函数指针，再调用该函数，执行了3次操作。对于直接调用普通函数只需要一次操作。但是跟多态的优点相比，这一点点损耗微不足道。
+
+#### 动态绑定的三个条件
+
+1. 通过指针或引用来调用函数；
+2. 指针向上转型（继承类向基类转换称为向上转型）
+3. 调用的是虚函数
+
+#### 总结
+
+封装、继承、多态是面向对象设计的三个特征，而多态是关键。C++通过虚函数表，实现了虚函数与对象的动态绑定，从而构建了C++面向对象程序设计的基石。
+
+### 18.7 纯虚函数、抽象基类、接口类
+
+#### 纯虚函数
+
+之前的课程中，我们写的虚函数都有函数体。然而C++中也允许创建一种不带函数体的虚函数，称之为**纯虚函数**。
+纯虚函数只是一个占位符，可以由派生类重新定义。
+要创建一个纯虚函数，而不是为函数定义一个主体，我们只需将0分配给函数。如下:
+
+```c++
+class Base {
+public:
+    const char* sayHi() const { return "Hi"; }  //普通的非虚函数
+    virtual const char* getName() const { return "Base"; }  //普通的虚函数
+    virtual int getValue() const = 0;  //纯虚函数
+    int doSomething() = 0;  //编译报错，不可以将非虚函数赋值为0
+};
+```
+
+当我们向我们的类添加一个纯虚函数时，就意味着，“由派生类来实现这个函数”。 
+ 使用纯虚函数有两个目的：
+
+1. 任何具有纯虚函数的类都成为抽象基类（不能被实例化）
+2. 任何派生类都必须为纯虚函数定义主体，否则派生类 也会被视为抽象基类。
+
+实例：
+
+```c++
+#include <string>
+#include <iostream>
+
+class Animal { // This Animal is an abstract base class
+protected:
+    std::string m_name;
+public:
+    Animal(const std::string& name)
+        : m_name{ name } {}
+
+    const std::string& getName() const { return m_name; }
+    virtual const char* speak() const = 0; // speak is now a pure virtual function
+    virtual ~Animal() = default;
+};
+
+class Cow: public Animal {
+public:
+    Cow(const std::string& name)
+        : Animal(name) {}
+    const char* speak() const override { return "Moo"; }
+};
+
+int main() {
+    Cow cow{ "Betsy" };
+    std::cout << cow.getName() << " says " << cow.speak() << '\n';
+    return 0;
+}
+```
+
+
+
+#### 接口类
+
+接口类是一个没有成员变量的类，所有函数都是纯虚函数。就是说，这个类纯粹是个定义，并没有实际的实现。
+当我们想要定义派生类必须实现的功能时，可以定义个接口基类，将派生类如何实现该功能的细节完全留给派生类。
+接口类通常以 I 开头。这是一个示例接口类：
+
+```c++
+class IErrorLog {
+public:
+    virtual bool openLog(const char *filename) = 0;
+    virtual bool closeLog() = 0;
+    virtual bool writeError(const char *errorMessage) = 0;
+
+    virtual ~IErrorLog() {} // make a virtual destructor in case we delete an IErrorLog pointer, so the proper derived destructor is called
+};
+```
+
+任何从IErrorLog继承的类都必须提供所有三个函数的实现才能被实例化。
+
+注意:不要忘记为接口类定义虚析构函数，以便在删除指向接口的指针时调用正确的派生析构函数。
+
+### 18.8 虚基类
+
+高级内容，先跳过
+
+### 18.9  对象切片
+
+先看到之前的旧栗子：
+
+
+
+
+### 8.14  函数模板实例化
 
 上一节介绍了函数模板，这一节将重点介绍如何使用模板
 
@@ -2255,8 +3689,14 @@ int main() {
 ​		**语音提问**:教师可以一键选择一名学生进行语音提问，选中者的麦克风将自动打开，语音将发送到其余人。
 ​						教师可以一键结束语音提问。这个功能在第一版可以先不实现。
 
-​		
+再简化一点，端到端模式，
+		
 
-
+数据流  
 
 sqlite 封装
+
+## 七、UML类图
+
+类图主要是用来显示系统中的类、接口以及它们之间的静态结构和关系的一种静态模型。类图中最基本的元素是类、接口。软件设计师设计出类图后，程序员就可以用代码实现类图中包含的内容。
+
